@@ -23,7 +23,12 @@ export default tseslint.config(
     languageOptions: {
       globals: globals.node,
       parserOptions: {
-        projectService: true,
+        projectService: {
+          // Build tooling sits outside the TypeScript program, which only
+          // covers src. Listing it here keeps the type-aware rules on rather
+          // than exempting these files from them.
+          allowDefaultProject: ['scripts/*.mjs'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

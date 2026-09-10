@@ -24,7 +24,7 @@ Current progress against the roadmap:
 - [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
 - [x] Environment templates for both workspaces
 - [ ] Hosted services wired up (Neon, Upstash, Cloudflare R2)
-- [ ] Initial migration
+- [x] Initial migration (users, campaigns, contacts, logs)
 - [ ] CI pipeline
 - [ ] Google Cloud project and OAuth credentials
 
@@ -127,6 +127,8 @@ Run from the repository root. Each one delegates to every workspace that defines
 | `npm run verify`         | Format check, lint, typecheck and build, in order |
 | `npm run migrate:latest` | Apply pending database migrations                 |
 | `npm run migrate:down`   | Roll back the last migration                      |
+
+Create a migration with `npm run migrate:create --workspace backend -- <name>`. Migrations run against `DATABASE_DIRECT_URL`, never the pooled connection; the wrapper refuses to start if that variable points at a `-pooler` host.
 
 ---
 

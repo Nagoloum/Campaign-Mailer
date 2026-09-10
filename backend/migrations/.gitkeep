@@ -1,2 +1,0 @@
-Database migrations. Every migration ships with a working rollback and is
-tested against a copy of the data before it runs in production.
