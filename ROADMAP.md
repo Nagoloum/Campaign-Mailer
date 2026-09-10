@@ -94,6 +94,7 @@ Le CDC laisse plusieurs alternatives ouvertes. Elles doivent être fermées ici,
 | Envoi email | Gmail API OAuth2 ou SMTP Nodemailer | **Gmail API (REST) via OAuth2** | Sur Railway/Vercel, le SMTP sortant est souvent bloqué ou limité. L'API REST utilise le même token que le login. |
 | Stockage pièces jointes | Google Drive ou stockage objet | **Stockage objet (S3-compatible / Supabase Storage)** | Drive impose un scope OAuth supplémentaire intrusif et une latence de lecture à chaque envoi. Le CV doit être lu des dizaines de fois par jour. |
 | Queue | Bull + Redis ou cron | **BullMQ + Redis (Upstash)** | Retry, backoff et jobs différés nécessaires pour respecter la cadence et les quotas. |
+| Postgres et Redis en développement | Docker local ou services hébergés | **Hébergés dès le développement (Supabase + Upstash)** | Docker n'est pas installé sur la machine du porteur. Les mêmes services en dev et en prod suppriment une classe d'écarts d'environnement. Contrepartie : des identifiants réels dans `backend/.env` dès la Phase 0. |
 | Langage backend | JS ou TS | **TypeScript** | Le modèle de données a beaucoup d'états (`status`, `event_type`). Le typage évite des bugs d'état silencieux. |
 | Hébergement backend | Railway ou Render | **Railway** | Postgres + Redis + service Node dans un seul projet. |
 
@@ -111,12 +112,12 @@ Deux écarts au CDC sont volontaires (stockage objet au lieu de Drive, TypeScrip
   → skills : `react-best-practices`, `lean-build`
 - Scaffolder `backend/` : Express + TypeScript, structure `routes/`, `controllers/`, `services/`, `models/`, `middleware/`, `jobs/`.
   → skills : `lean-build`
-- Mettre en place l'outillage qualité : ESLint, Prettier, `tsc --noEmit`, husky + lint-staged.
+- Mettre en place l'outillage qualité : ESLint, Prettier, `tsc --noEmit`, husky + lint-staged. Régler l'ExecutionPolicy PowerShell en `RemoteSigned` au préalable, sinon les hooks husky ne s'exécutent pas sur Windows.
   → skills : aucun
 - Écrire `backend/.env.example` et `frontend/.env.example` complets (voir §9 du CDC).
   → skills : aucun
-- Créer le `docker-compose.yml` de dev local : Postgres 16 + Redis 7.
-  → skills : aucun
+- Provisionner Postgres (Supabase) et Redis (Upstash) pour le développement, récupérer `DATABASE_URL` et `REDIS_URL`, vérifier la connexion depuis le backend.
+  → skills : aucun (action console, hors code)
 - Mettre en place les migrations : `node-pg-migrate` (ou Prisma si l'équipe préfère un ORM typé).
   → skills : `migration`
 - Écrire la migration initiale : tables `users`, `campaigns`, `contacts`, `logs` conformes au §5 du CDC, avec index sur `contacts(campaign_id, status)` et `logs(campaign_id, created_at)`.

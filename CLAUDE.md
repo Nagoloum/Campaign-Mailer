@@ -1,0 +1,84 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this repository is
+
+Campaign Mailer sends personalized email campaigns from each user's own Gmail account. A user connects Google, imports a CSV of contacts, writes one template with merge variables, attaches a file such as a CV, and the backend sends the campaign over days at a controlled pace that stays under Gmail's daily quota.
+
+The application is proprietary. Copyright holder: Daniel Nagoloum Talla. See `LICENSE`.
+
+## State of the repository
+
+**Pre-code.** As of 10 September 2026 the repository holds the plan, the license, the root workspace configuration and the conventions. Neither the `frontend/` nor the `backend/` workspace is scaffolded; both hold a `.gitkeep` placeholder.
+
+`ROADMAP.md` is the plan of record: ten phases, and within a phase one bullet is one ticket, one branch, one commit. Read it before starting work. It carries the definition of done for each phase and annotates every work item with the skills to load before implementing it.
+
+`CONTRIBUTING.md` carries the branch and commit conventions, plus the three areas that need extra care.
+
+## Working agreement with the repository owner
+
+- **One task at a time.** Finish one roadmap bullet, commit it, `git push` to `origin main`, then report and stop. Do not chain into the next bullet without being asked.
+- Commit messages follow Conventional Commits, and the body explains why, not only what.
+- Update the progress checklist in `README.md` in the same commit that advances it.
+- Never start a Phase 9 item before Phase 8 is signed off. Scope drift toward post-MVP features is the project's most likely cause of delay.
+
+## Commands
+
+Run from the repository root. Each script delegates to every workspace that defines it, via `--if-present`, so they exit cleanly while the workspaces are still empty and become useful as the workspaces appear.
+
+```bash
+npm install              # install all workspaces
+npm run dev              # frontend and backend in watch mode
+npm run build            # production builds
+npm run lint             # ESLint
+npm run typecheck        # tsc --noEmit
+npm test                 # test suites
+npm run migrate:latest   # apply pending migrations (backend workspace)
+npm run migrate:down     # roll back the last migration
+```
+
+Target a single workspace with `npm run <script> --workspace backend`. Running a single test file will be `npm test --workspace backend -- <path>` once a runner is chosen; the choice is a Phase 7 decision and is not made yet.
+
+## Stack, and the three deliberate departures from the specification
+
+The French specification (`Cahier des Charges v1.0`) left several alternatives open. They were closed on 10 September 2026: PostgreSQL, BullMQ on Redis, Express, React 19 + Vite + Tailwind, Passport.js with the Google OAuth 2.0 strategy, Vercel for the frontend, Railway for the backend.
+
+Three choices contradict the written specification on purpose. Do not "correct" them back:
+
+- **TypeScript, not JavaScript.** The data model carries four state enums. A typo on a status string would corrupt the campaign state machine silently.
+- **Gmail API REST (`users.messages.send`), not Nodemailer SMTP.** PaaS hosts block or throttle outbound SMTP, and the REST call reuses the OAuth token already obtained at login. Nodemailer may still be used to build the MIME payload.
+- **S3-compatible object storage, not Google Drive.** Drive would add a second sensitive OAuth scope alongside `gmail.send`, which makes Google's verification heavier, and the attachment is re-read on every send.
+
+Postgres and Redis are **hosted from the start** (Supabase and Upstash), not run locally in Docker. Docker is not installed on the owner's machine, and using the same services in development and production removes a class of environment drift. This means real connection strings live in `backend/.env` from Phase 0 onward; `.gitignore` already blocks `.env`.
+
+## Architecture, and where the risk sits
+
+Four layers, and the boundaries matter:
+
+- **Routes** validate the payload with a schema and delegate. A route that queries the database directly will be sent back in review.
+- **Controllers** orchestrate.
+- **Services** (`backend/src/services/`) hold the business rules and are the only layer that talks to the database or to an external API.
+- **Jobs** (`backend/src/jobs/`) are BullMQ workers. They run in a process separate from the API.
+
+The send engine, spread across `services/` and `jobs/`, is the part of this codebase where a defect is not recoverable. A duplicate send reaches a real recipient and cannot be undone, and an over-aggressive send can get a user's Google account suspended. Three properties are non-negotiable there:
+
+- **Idempotency.** A contact must never receive the same campaign email twice, including after a worker is killed mid-campaign and restarted. Enforced by a lock on the contact plus a uniqueness constraint keyed on `(campaign_id, contact_id)`.
+- **A campaign state machine.** `draft → scheduled → running → paused → running → completed`. Any transition outside that graph is rejected with a 409, not silently applied.
+- **A hard daily cap** below Gmail's own limit (roughly 150 messages a day for a personal account, 1500 for Workspace), with the campaign pausing itself as it approaches the cap.
+
+Two other sensitive areas: Google access and refresh tokens are encrypted at rest with AES-256-GCM and must never appear in a log line, an error message or an API response; and every value interpolated into an email template is attacker-controlled input from a CSV file, so it is escaped without exception.
+
+The database schema is defined in section 5 of the specification: `users`, `campaigns`, `contacts`, `logs`. Every migration ships with a working rollback.
+
+## Environment notes
+
+The owner develops on Windows 11 with PowerShell 5.1 and Node 24.
+
+- `.gitattributes` normalizes the repository to LF. Do not add files that fight it.
+- PowerShell's execution policy is `Restricted` on this machine, which prevents `.ps1` scripts from running. This will break husky hooks and any npm binary shipped as `.ps1`. Fix without admin rights: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+- A broken npm was diagnosed and fixed on 10 September 2026: a stale `minipass` 3.3.6 nested under npm's own `minizlib` shadowed `minipass` 7.1.2, and since minizlib v3 reads the named `Minipass` export that 3.x does not provide, every npm command on the machine failed with `Class extends value undefined is not a constructor or null`. If that error reappears after a Node upgrade, look for a nested `minipass` under `node_modules/npm/node_modules/minizlib/` and remove it.
+
+## Google OAuth verification
+
+`gmail.send` is a sensitive scope. In Testing mode the OAuth consent screen works immediately but is capped at 100 users. Verification for production can take weeks, which is why the roadmap files the request in Phase 0 rather than before launch. Adding a second sensitive scope would make that review heavier, so treat any new scope as an architectural decision.

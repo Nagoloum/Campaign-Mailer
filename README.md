@@ -18,11 +18,11 @@ Current progress against the roadmap:
 
 - [x] Git identity and repository conventions
 - [x] Monorepo root: license, ignore rules, line-ending policy, editor config, workspaces
-- [ ] Project `CLAUDE.md`
+- [x] Project `CLAUDE.md`
 - [ ] Frontend workspace (React 19 + Vite + TypeScript + Tailwind)
 - [ ] Backend workspace (Express + TypeScript)
 - [ ] Quality tooling (ESLint, Prettier, husky)
-- [ ] Local database and queue
+- [ ] Hosted Postgres and Redis wired up (Supabase, Upstash)
 - [ ] Initial migration
 - [ ] CI pipeline
 - [ ] Google Cloud project and OAuth credentials
@@ -48,12 +48,13 @@ Decided on 10 September 2026. The reasoning, including three deliberate departur
 
 ## Repository layout
 
-```
+```text
 campaign-mailer/
 ├── frontend/           React + Vite single-page application
 ├── backend/            Express API, workers and migrations
 ├── ROADMAP.md          Plan of record, phase by phase
 ├── CONTRIBUTING.md     Conventions and review process
+├── CLAUDE.md           Repository guide for Claude Code
 ├── LICENSE             Proprietary. All rights reserved.
 └── package.json        npm workspaces root
 ```
@@ -63,8 +64,14 @@ campaign-mailer/
 ## Requirements
 
 - Node.js 22 or later, npm 10 or later
-- PostgreSQL 16 and Redis 7, either local or hosted
+- A PostgreSQL database and a Redis instance. The project uses hosted services in development as well as in production: Supabase for Postgres, Upstash for Redis. No local database installation is needed.
 - A Google Cloud project with the Gmail API enabled and OAuth 2.0 web credentials
+
+On Windows, set the PowerShell execution policy before installing the git hooks, or they will not run:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
 
 ---
 
