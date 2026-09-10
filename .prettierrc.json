@@ -1,0 +1,18 @@
+{
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 90,
+  "plugins": ["prettier-plugin-tailwindcss"],
+  "tailwindStylesheet": "./frontend/src/index.css",
+  "overrides": [
+    {
+      "files": ["*.md"],
+      "options": { "printWidth": 80, "proseWrap": "preserve" }
+    },
+    {
+      "files": ["*.json", "*.yml", "*.yaml"],
+      "options": { "singleQuote": false }
+    }
+  ]
+}

@@ -11,8 +11,7 @@
   --color-accent: oklch(52% 0.19 258);
   --color-accent-ink: oklch(99% 0 0);
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {

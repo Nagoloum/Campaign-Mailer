@@ -1,0 +1,3 @@
+# Type checking is too slow for every commit and too important to leave to CI
+# alone. Running it here keeps a broken build from reaching the remote.
+npm run typecheck

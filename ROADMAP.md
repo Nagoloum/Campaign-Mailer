@@ -44,14 +44,14 @@ En cas de bug pendant un lot : `investigate-first`, puis `systematic-debugging`,
 
 ### Skills transverses, actifs en permanence
 
-| Skill | Quand |
-|---|---|
-| `caveman` | Tout le temps. Compression des échanges, jamais du code ni des docs. |
-| `writing-plans` / `executing-plans` | Découpage d'un lot en plusieurs étapes, puis exécution. |
-| `verification-before-completion` | Fin de chaque lot. |
-| `caveman-commit` | Chaque commit. |
-| `lean-build` | Dès qu'un lot commence à grossir au-delà de son périmètre. |
-| `cavecrew` | Délégation d'investigation, d'édition ou de revue à des sous-agents compressés. |
+| Skill                               | Quand                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| `caveman`                           | Tout le temps. Compression des échanges, jamais du code ni des docs.            |
+| `writing-plans` / `executing-plans` | Découpage d'un lot en plusieurs étapes, puis exécution.                         |
+| `verification-before-completion`    | Fin de chaque lot.                                                              |
+| `caveman-commit`                    | Chaque commit.                                                                  |
+| `lean-build`                        | Dès qu'un lot commence à grossir au-delà de son périmètre.                      |
+| `cavecrew`                          | Délégation d'investigation, d'édition ou de revue à des sous-agents compressés. |
 
 ### Skills cités dans la configuration mais non installés
 
@@ -61,18 +61,18 @@ Le mapping global mentionne `pick-ui-library`, `prototype` et `review-animations
 
 ## Vue d'ensemble
 
-| Phase | Contenu | Durée cible | Livrable |
-|---|---|---|---|
-| 0 | Fondations projet & décisions techniques | 2–3 j | Repo initialisé, décisions gelées, CI verte |
-| 1 | Auth Google OAuth + socle app | 5 j | Login/logout fonctionnel, dashboard vide |
-| 2 | CRUD campagnes + éditeur de template | 5 j | Créer/éditer une campagne, preview |
-| 3 | Contacts CSV + pièces jointes | 4 j | Import 200+ contacts, upload CV |
-| 4 | Moteur d'envoi (queue + Gmail API) | 6 j | Campagne réellement envoyée, statuts à jour |
-| 5 | Dashboard, stats, gestion contacts | 4 j | Suivi d'avancement complet |
-| 6 | Durcissement : sécurité, RGPD, quotas | 4 j | Chiffrement tokens, purge, rate limit |
-| 7 | Tests, observabilité, documentation | 4 j | Couverture cible, logs, runbook |
-| 8 | Déploiement production & alpha test | 3 j | URL publique, 5–10 bêta-testeurs |
-| 9 | Post-MVP (phase 2 du CDC) | itératif | Templates, tracking, séquences, A/B |
+| Phase | Contenu                                  | Durée cible | Livrable                                    |
+| ----- | ---------------------------------------- | ----------- | ------------------------------------------- |
+| 0     | Fondations projet & décisions techniques | 2–3 j       | Repo initialisé, décisions gelées, CI verte |
+| 1     | Auth Google OAuth + socle app            | 5 j         | Login/logout fonctionnel, dashboard vide    |
+| 2     | CRUD campagnes + éditeur de template     | 5 j         | Créer/éditer une campagne, preview          |
+| 3     | Contacts CSV + pièces jointes            | 4 j         | Import 200+ contacts, upload CV             |
+| 4     | Moteur d'envoi (queue + Gmail API)       | 6 j         | Campagne réellement envoyée, statuts à jour |
+| 5     | Dashboard, stats, gestion contacts       | 4 j         | Suivi d'avancement complet                  |
+| 6     | Durcissement : sécurité, RGPD, quotas    | 4 j         | Chiffrement tokens, purge, rate limit       |
+| 7     | Tests, observabilité, documentation      | 4 j         | Couverture cible, logs, runbook             |
+| 8     | Déploiement production & alpha test      | 3 j         | URL publique, 5–10 bêta-testeurs            |
+| 9     | Post-MVP (phase 2 du CDC)                | itératif    | Templates, tracking, séquences, A/B         |
 
 Total MVP (phases 0–8) : **~37 jours ouvrés**, soit ~130 h à 1–2 devs. Aligné sur l'estimation du CDC.
 
@@ -88,15 +88,15 @@ Total MVP (phases 0–8) : **~37 jours ouvrés**, soit ~130 h à 1–2 devs. Ali
 
 Le CDC laisse plusieurs alternatives ouvertes. Elles doivent être fermées ici, car elles changent le code de toutes les phases suivantes.
 
-| Sujet | Options CDC | Recommandation | Raison |
-|---|---|---|---|
-| Base de données | PostgreSQL ou Firestore | **PostgreSQL** | Le modèle du CDC est relationnel (FK, ENUM, agrégats de stats). Firestore obligerait à dénormaliser. |
-| Envoi email | Gmail API OAuth2 ou SMTP Nodemailer | **Gmail API (REST) via OAuth2** | Sur Railway/Vercel, le SMTP sortant est souvent bloqué ou limité. L'API REST utilise le même token que le login. |
-| Stockage pièces jointes | Google Drive ou stockage objet | **Stockage objet (S3-compatible / Supabase Storage)** | Drive impose un scope OAuth supplémentaire intrusif et une latence de lecture à chaque envoi. Le CV doit être lu des dizaines de fois par jour. |
-| Queue | Bull + Redis ou cron | **BullMQ + Redis (Upstash)** | Retry, backoff et jobs différés nécessaires pour respecter la cadence et les quotas. |
-| Postgres et Redis en développement | Docker local ou services hébergés | **Hébergés dès le développement (Supabase + Upstash)** | Docker n'est pas installé sur la machine du porteur. Les mêmes services en dev et en prod suppriment une classe d'écarts d'environnement. Contrepartie : des identifiants réels dans `backend/.env` dès la Phase 0. |
-| Langage backend | JS ou TS | **TypeScript** | Le modèle de données a beaucoup d'états (`status`, `event_type`). Le typage évite des bugs d'état silencieux. |
-| Hébergement backend | Railway ou Render | **Railway** | Postgres + Redis + service Node dans un seul projet. |
+| Sujet                              | Options CDC                         | Recommandation                                         | Raison                                                                                                                                                                                                              |
+| ---------------------------------- | ----------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base de données                    | PostgreSQL ou Firestore             | **PostgreSQL**                                         | Le modèle du CDC est relationnel (FK, ENUM, agrégats de stats). Firestore obligerait à dénormaliser.                                                                                                                |
+| Envoi email                        | Gmail API OAuth2 ou SMTP Nodemailer | **Gmail API (REST) via OAuth2**                        | Sur Railway/Vercel, le SMTP sortant est souvent bloqué ou limité. L'API REST utilise le même token que le login.                                                                                                    |
+| Stockage pièces jointes            | Google Drive ou stockage objet      | **Stockage objet (S3-compatible / Supabase Storage)**  | Drive impose un scope OAuth supplémentaire intrusif et une latence de lecture à chaque envoi. Le CV doit être lu des dizaines de fois par jour.                                                                     |
+| Queue                              | Bull + Redis ou cron                | **BullMQ + Redis (Upstash)**                           | Retry, backoff et jobs différés nécessaires pour respecter la cadence et les quotas.                                                                                                                                |
+| Postgres et Redis en développement | Docker local ou services hébergés   | **Hébergés dès le développement (Supabase + Upstash)** | Docker n'est pas installé sur la machine du porteur. Les mêmes services en dev et en prod suppriment une classe d'écarts d'environnement. Contrepartie : des identifiants réels dans `backend/.env` dès la Phase 0. |
+| Langage backend                    | JS ou TS                            | **TypeScript**                                         | Le modèle de données a beaucoup d'états (`status`, `event_type`). Le typage évite des bugs d'état silencieux.                                                                                                       |
+| Hébergement backend                | Railway ou Render                   | **Railway**                                            | Postgres + Redis + service Node dans un seul projet.                                                                                                                                                                |
 
 Deux écarts au CDC sont volontaires (stockage objet au lieu de Drive, TypeScript au lieu de JS). À valider par le porteur du projet avant la Phase 1 ; sinon, adapter les phases 3 et 4.
 
@@ -548,30 +548,30 @@ C'est la phase la plus risquée du projet. Elle mérite le plus de tests, et la 
 
 ## Registre des risques du projet
 
-| Risque | Impact | Probabilité | Parade | Skills |
-|---|---|---|---|---|
-| Vérification OAuth Google longue ou refusée | Bloque le lancement public | Moyenne | Demande déposée en Phase 0. Rester en mode Testing (100 utilisateurs) pour l'alpha. Prévoir un plan B avec mot de passe d'application. | — |
-| Blocage du compte Gmail d'un utilisateur | Perte de confiance forte | Moyenne | Plafond dur, jitter, avertissement explicite avant le premier envoi. | `test-driven-development` |
-| Emails classés en spam | L'outil ne remplit pas sa promesse | Élevée | Personnalisation obligatoire, conseils de délivrabilité dans l'interface, lien de désinscription. | `cold-email`, `emails`, `copywriting` |
-| Doublons d'envoi après incident | Dommage réputationnel pour l'utilisateur | Moyenne | Idempotence traitée en Phase 4, testée par coupure de worker. | `test-driven-development`, `code-review` |
-| Usage abusif de l'outil pour du spam de masse | Risque juridique et de blocage de l'app Google | Moyenne | CGU, plafond global par compte, journal d'audit, procédure de signalement. | `security-review`, `copywriting` |
-| Dérive du périmètre vers les fonctions Post-MVP | Retard du MVP | Élevée | Aucune fonction de Phase 9 avant la validation de la Phase 8. | `lean-build` |
-| Un seul développeur sur le moteur d'envoi | Point de défaillance unique | Moyenne | Revue de code obligatoire sur `services/`, runbook rédigé en Phase 7. | `requesting-code-review`, `writing-skills` |
+| Risque                                          | Impact                                         | Probabilité | Parade                                                                                                                                 | Skills                                     |
+| ----------------------------------------------- | ---------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Vérification OAuth Google longue ou refusée     | Bloque le lancement public                     | Moyenne     | Demande déposée en Phase 0. Rester en mode Testing (100 utilisateurs) pour l'alpha. Prévoir un plan B avec mot de passe d'application. | —                                          |
+| Blocage du compte Gmail d'un utilisateur        | Perte de confiance forte                       | Moyenne     | Plafond dur, jitter, avertissement explicite avant le premier envoi.                                                                   | `test-driven-development`                  |
+| Emails classés en spam                          | L'outil ne remplit pas sa promesse             | Élevée      | Personnalisation obligatoire, conseils de délivrabilité dans l'interface, lien de désinscription.                                      | `cold-email`, `emails`, `copywriting`      |
+| Doublons d'envoi après incident                 | Dommage réputationnel pour l'utilisateur       | Moyenne     | Idempotence traitée en Phase 4, testée par coupure de worker.                                                                          | `test-driven-development`, `code-review`   |
+| Usage abusif de l'outil pour du spam de masse   | Risque juridique et de blocage de l'app Google | Moyenne     | CGU, plafond global par compte, journal d'audit, procédure de signalement.                                                             | `security-review`, `copywriting`           |
+| Dérive du périmètre vers les fonctions Post-MVP | Retard du MVP                                  | Élevée      | Aucune fonction de Phase 9 avant la validation de la Phase 8.                                                                          | `lean-build`                               |
+| Un seul développeur sur le moteur d'envoi       | Point de défaillance unique                    | Moyenne     | Revue de code obligatoire sur `services/`, runbook rédigé en Phase 7.                                                                  | `requesting-code-review`, `writing-skills` |
 
 ---
 
 ## Jalons de validation
 
-| Jalon | Condition | Fin de phase |
-|---|---|---|
-| M1 — Socle prêt | CI verte, décisions gelées, OAuth configuré | 0 |
-| M2 — Connexion réelle | Un compte Google se connecte, refresh token chiffré en base | 1 |
-| M3 — Campagne préparable | Créer une campagne, importer 200 contacts, attacher un CV, voir l'aperçu | 3 |
-| M4 — Premier envoi réel | 5 emails partis vers des adresses de test, statuts corrects | 4 |
-| M5 — MVP fonctionnel | Suivi complet, responsive, statistiques justes | 5 |
-| M6 — Prêt pour utilisateurs | Sécurité auditée, RGPD couvert, tests et runbook en place | 7 |
-| M7 — En production | URL publique, sauvegarde restaurée avec succès, alpha lancée | 8 |
-| M8 — Lancement public | Retours alpha traités, aucune anomalie bloquante | 8 |
+| Jalon                       | Condition                                                                | Fin de phase |
+| --------------------------- | ------------------------------------------------------------------------ | ------------ |
+| M1 — Socle prêt             | CI verte, décisions gelées, OAuth configuré                              | 0            |
+| M2 — Connexion réelle       | Un compte Google se connecte, refresh token chiffré en base              | 1            |
+| M3 — Campagne préparable    | Créer une campagne, importer 200 contacts, attacher un CV, voir l'aperçu | 3            |
+| M4 — Premier envoi réel     | 5 emails partis vers des adresses de test, statuts corrects              | 4            |
+| M5 — MVP fonctionnel        | Suivi complet, responsive, statistiques justes                           | 5            |
+| M6 — Prêt pour utilisateurs | Sécurité auditée, RGPD couvert, tests et runbook en place                | 7            |
+| M7 — En production          | URL publique, sauvegarde restaurée avec succès, alpha lancée             | 8            |
+| M8 — Lancement public       | Retours alpha traités, aucune anomalie bloquante                         | 8            |
 
 ---
 
@@ -579,28 +579,28 @@ C'est la phase la plus risquée du projet. Elle mérite le plus de tests, et la 
 
 Vue inverse, pour retrouver rapidement où un skill intervient.
 
-| Domaine | Skills | Phases |
-|---|---|---|
-| Discipline de travail | `brainstorming`, `writing-plans`, `executing-plans`, `lean-build`, `verification-before-completion`, `verify-and-stop` | toutes |
-| Tests | `test-driven-development` | 0–9 |
-| Revue et qualité | `code-review`, `caveman-review`, `simplify`, `requesting-code-review`, `receiving-code-review`, `safe-refactor`, `surgical-patch` | 1–9 |
-| Sécurité | `security-review` | 1, 2, 3, 4, 6, 8, 9 |
-| Débogage | `investigate-first`, `systematic-debugging` | 1, 4, 7, 8, 9 |
-| Design UI | `frontend-design`, `taste-skill`, `web-design-guidelines`, `theme-factory`, `emil-design-eng`, `apple-design` | 1, 2, 3, 5, 6 |
-| React | `react-best-practices`, `composition-patterns`, `ask-sonner` | 1, 2, 3, 5 |
-| Animation | `motion-design`, `motion-doctrine`, `animate`, `find-animation-opportunities` | 1, 3, 5 |
-| Data / graphiques | `dataviz` | 5, 9 |
-| Conversion et parcours | `cro`, `signup`, `onboarding` | 1, 2, 3, 4, 6, 8 |
-| Contenu email | `copywriting`, `copy-editing`, `cold-email`, `emails` | 2, 4, 6, 8, 9 |
-| Mesure | `analytics`, `attribution`, `ab-testing` | 7, 8, 9 |
-| Lancement | `launch`, `product-marketing`, `public-relations`, `customer-research` | 8 |
-| Monétisation | `pricing`, `offers`, `paywalls` | 9 |
-| Infra & données | `migration`, `schedule` | 0, 6, 8 |
-| Documentation | `writing-skills`, `artifact-diagramming`, `init` | 0, 7 |
-| Exécution réelle | `run` | 1, 4, 7, 8 |
-| Git & parallélisation | `finishing-a-development-branch`, `using-git-worktrees`, `dispatching-parallel-agents`, `cavecrew` | toutes |
-| Commits | `caveman-commit` | toutes |
-| Environnement agent | `fewer-permission-prompts`, `update-config` | 0 |
+| Domaine                | Skills                                                                                                                            | Phases              |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Discipline de travail  | `brainstorming`, `writing-plans`, `executing-plans`, `lean-build`, `verification-before-completion`, `verify-and-stop`            | toutes              |
+| Tests                  | `test-driven-development`                                                                                                         | 0–9                 |
+| Revue et qualité       | `code-review`, `caveman-review`, `simplify`, `requesting-code-review`, `receiving-code-review`, `safe-refactor`, `surgical-patch` | 1–9                 |
+| Sécurité               | `security-review`                                                                                                                 | 1, 2, 3, 4, 6, 8, 9 |
+| Débogage               | `investigate-first`, `systematic-debugging`                                                                                       | 1, 4, 7, 8, 9       |
+| Design UI              | `frontend-design`, `taste-skill`, `web-design-guidelines`, `theme-factory`, `emil-design-eng`, `apple-design`                     | 1, 2, 3, 5, 6       |
+| React                  | `react-best-practices`, `composition-patterns`, `ask-sonner`                                                                      | 1, 2, 3, 5          |
+| Animation              | `motion-design`, `motion-doctrine`, `animate`, `find-animation-opportunities`                                                     | 1, 3, 5             |
+| Data / graphiques      | `dataviz`                                                                                                                         | 5, 9                |
+| Conversion et parcours | `cro`, `signup`, `onboarding`                                                                                                     | 1, 2, 3, 4, 6, 8    |
+| Contenu email          | `copywriting`, `copy-editing`, `cold-email`, `emails`                                                                             | 2, 4, 6, 8, 9       |
+| Mesure                 | `analytics`, `attribution`, `ab-testing`                                                                                          | 7, 8, 9             |
+| Lancement              | `launch`, `product-marketing`, `public-relations`, `customer-research`                                                            | 8                   |
+| Monétisation           | `pricing`, `offers`, `paywalls`                                                                                                   | 9                   |
+| Infra & données        | `migration`, `schedule`                                                                                                           | 0, 6, 8             |
+| Documentation          | `writing-skills`, `artifact-diagramming`, `init`                                                                                  | 0, 7                |
+| Exécution réelle       | `run`                                                                                                                             | 1, 4, 7, 8          |
+| Git & parallélisation  | `finishing-a-development-branch`, `using-git-worktrees`, `dispatching-parallel-agents`, `cavecrew`                                | toutes              |
+| Commits                | `caveman-commit`                                                                                                                  | toutes              |
+| Environnement agent    | `fewer-permission-prompts`, `update-config`                                                                                       | 0                   |
 
 ---
 

@@ -10,7 +10,7 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 0 — foundations.** The repository holds the plan, the license and the project conventions. No application code is scaffolded yet, so the commands in this file will do nothing useful until the frontend and backend workspaces exist.
+**Phase 0 — foundations.** Both workspaces are scaffolded and run, and the quality tooling is in place. The application itself has no features yet: the API answers `/api/health` and nothing more, and the three routed pages are placeholders that name the phase which builds them.
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 
@@ -21,7 +21,7 @@ Current progress against the roadmap:
 - [x] Project `CLAUDE.md`
 - [x] Frontend workspace (React 19 + Vite + TypeScript + Tailwind + React Router)
 - [x] Backend workspace (Express + TypeScript)
-- [ ] Quality tooling (ESLint, Prettier, husky)
+- [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
 - [ ] Hosted Postgres and Redis wired up (Supabase, Upstash)
 - [ ] Initial migration
 - [ ] CI pipeline
@@ -33,16 +33,16 @@ Current progress against the roadmap:
 
 Decided on 10 September 2026. The reasoning, including three deliberate departures from the specification, is in the decision table of [ROADMAP.md](ROADMAP.md#phase-0--fondations-et-décisions-gelées).
 
-| Layer | Choice |
-|---|---|
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS, React Router |
-| Backend | Node.js, Express, TypeScript |
-| Database | PostgreSQL |
-| Queue | BullMQ on Redis |
-| Email | Gmail API (`users.messages.send`) over OAuth 2.0 |
-| Auth | Passport.js, Google OAuth 2.0 strategy |
-| Attachments | S3-compatible object storage |
-| Hosting | Vercel (frontend), Railway (backend, Postgres), Upstash (Redis) |
+| Layer       | Choice                                                          |
+| ----------- | --------------------------------------------------------------- |
+| Frontend    | React 19, Vite, TypeScript, Tailwind CSS, React Router          |
+| Backend     | Node.js, Express, TypeScript                                    |
+| Database    | PostgreSQL                                                      |
+| Queue       | BullMQ on Redis                                                 |
+| Email       | Gmail API (`users.messages.send`) over OAuth 2.0                |
+| Auth        | Passport.js, Google OAuth 2.0 strategy                          |
+| Attachments | S3-compatible object storage                                    |
+| Hosting     | Vercel (frontend), Railway (backend, Postgres), Upstash (Redis) |
 
 ---
 
@@ -103,18 +103,33 @@ npm run dev
 
 Run from the repository root. Each one delegates to every workspace that defines the script.
 
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Start backend and frontend together in watch mode |
-| `npm run dev:backend` | Start the API alone on port 3000 |
-| `npm run dev:frontend` | Start the web app alone on port 5173 |
-| `npm run build` | Produce production builds |
-| `npm run lint` | Run ESLint |
-| `npm run format` | Run Prettier |
-| `npm run typecheck` | Run `tsc --noEmit` |
-| `npm test` | Run the test suites |
-| `npm run migrate:latest` | Apply pending database migrations |
-| `npm run migrate:down` | Roll back the last migration |
+| Command                  | Purpose                                           |
+| ------------------------ | ------------------------------------------------- |
+| `npm run dev`            | Start backend and frontend together in watch mode |
+| `npm run dev:backend`    | Start the API alone on port 3000                  |
+| `npm run dev:frontend`   | Start the web app alone on port 5173              |
+| `npm run build`          | Produce production builds                         |
+| `npm run lint`           | oxlint on the frontend, ESLint on the backend     |
+| `npm run lint:fix`       | Same, applying the fixes it can make              |
+| `npm run format`         | Rewrite the repository with Prettier              |
+| `npm run format:check`   | Fail if anything is unformatted                   |
+| `npm run typecheck`      | Run `tsc --noEmit` in both workspaces             |
+| `npm test`               | Run the test suites                               |
+| `npm run verify`         | Format check, lint, typecheck and build, in order |
+| `npm run migrate:latest` | Apply pending database migrations                 |
+| `npm run migrate:down`   | Roll back the last migration                      |
+
+---
+
+## Quality tooling
+
+Two linters, each where it is the better tool.
+
+The frontend runs **oxlint**, which ships with the Vite template and is fast enough to stay out of the way. The backend runs **ESLint** with `typescript-eslint` type-aware rules and `eslint-plugin-security`, because that workspace handles OAuth tokens, attacker-controlled CSV values and a send engine whose defects reach real recipients. `no-floating-promises` alone justifies it: an unawaited promise in the send engine is a send whose failure nobody sees.
+
+**Prettier** formats everything from a single config at the root, so neither workspace has a style opinion of its own.
+
+**husky** runs `lint-staged` before a commit and `npm run typecheck` before a push. Hooks install themselves on `npm install`.
 
 ---
 

@@ -15,6 +15,8 @@ type NodeEnv = 'development' | 'test' | 'production'
 const NODE_ENVS: readonly NodeEnv[] = ['development', 'test', 'production']
 
 function required(name: string): string {
+  // The name is a literal from this module, never a value from a request.
+  // eslint-disable-next-line security/detect-object-injection
   const value = process.env[name]
 
   if (value === undefined || value === '') {
@@ -25,6 +27,8 @@ function required(name: string): string {
 }
 
 function optionalPort(name: string, fallback: number): number {
+  // Same as above: the name is a literal from this module.
+  // eslint-disable-next-line security/detect-object-injection
   const raw = process.env[name]
 
   if (raw === undefined || raw === '') {
@@ -41,7 +45,7 @@ function optionalPort(name: string, fallback: number): number {
 }
 
 function nodeEnv(): NodeEnv {
-  const raw = process.env['NODE_ENV'] ?? 'development'
+  const raw = process.env.NODE_ENV ?? 'development'
 
   if (!NODE_ENVS.includes(raw as NodeEnv)) {
     throw new Error(`NODE_ENV must be one of ${NODE_ENVS.join(', ')}, got: ${raw}`)

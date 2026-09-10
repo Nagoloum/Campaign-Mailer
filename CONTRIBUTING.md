@@ -20,14 +20,14 @@ Do not start a Phase 9 item before Phase 8 is signed off. Scope drift toward pos
 
 One branch per ticket, named by type:
 
-| Prefix | Use |
-|---|---|
-| `feat/` | New behaviour |
-| `fix/` | Bug fix |
+| Prefix      | Use                                    |
+| ----------- | -------------------------------------- |
+| `feat/`     | New behaviour                          |
+| `fix/`      | Bug fix                                |
 | `refactor/` | Restructuring with no behaviour change |
-| `test/` | Tests only |
-| `docs/` | Documentation only |
-| `chore/` | Tooling, dependencies, configuration |
+| `test/`     | Tests only                             |
+| `docs/`     | Documentation only                     |
+| `chore/`    | Tooling, dependencies, configuration   |
 
 Example: `feat/campaign-state-machine`.
 
@@ -37,7 +37,7 @@ Example: `feat/campaign-state-machine`.
 
 [Conventional Commits](https://www.conventionalcommits.org/). One logical change per commit.
 
-```
+```text
 <type>(<optional scope>): <subject in the imperative, lower case, no final period>
 
 <body: what changed and why, wrapped at 72 columns>
@@ -57,7 +57,7 @@ A ticket is done when all of the following hold. If one fails, the ticket is not
 
 - The behaviour described in the roadmap item works, verified by hand in the running application.
 - Tests cover the new behaviour, including the failure paths.
-- `npm run lint`, `npm run typecheck` and `npm test` pass locally.
+- `npm run verify` passes locally, and so does `npm test`.
 - The diff has been reviewed, and the review comments are resolved.
 - Documentation touched by the change is updated in the same pull request.
 - No secret, token, credential or real contact email appears anywhere in the diff.
@@ -100,7 +100,7 @@ Escape every value interpolated into an email template. A contact name is attack
 
 ## Security
 
-Report a suspected vulnerability privately to landhack049@gmail.com. Do not open a public issue for it.
+Report a suspected vulnerability privately to `landhack049@gmail.com`. Do not open a public issue for it.
 
 Never commit a `.env` file, a service account key, an OAuth client secret, or a real contact list. If a secret reaches a commit, treat it as compromised: rotate it first, then clean the history.
 
