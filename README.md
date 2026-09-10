@@ -22,6 +22,7 @@ Current progress against the roadmap:
 - [x] Frontend workspace (React 19 + Vite + TypeScript + Tailwind + React Router)
 - [x] Backend workspace (Express + TypeScript)
 - [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
+- [x] Environment templates for both workspaces
 - [ ] Hosted Postgres and Redis wired up (Supabase, Upstash)
 - [ ] Initial migration
 - [ ] CI pipeline
@@ -83,12 +84,20 @@ cd Campaign-Mailer
 npm install
 ```
 
-Copy the environment templates and fill them in. Both files are created in a later Phase 0 task.
+Copy the environment templates and fill them in. Each variable in them says which roadmap phase first reads it, so only the Phase 0 block has to be filled to boot.
 
 ```bash
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
+
+`SESSION_SECRET` and `ENCRYPTION_KEY` are generated, not chosen:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+`ENCRYPTION_KEY` protects the stored Google tokens. Losing it makes every stored token undecryptable and forces every user to reconnect their account, so keep it in a secret manager as well as in the file.
 
 Run the database migrations, then start both workspaces.
 
