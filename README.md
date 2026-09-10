@@ -23,7 +23,7 @@ Current progress against the roadmap:
 - [x] Backend workspace (Express + TypeScript)
 - [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
 - [x] Environment templates for both workspaces
-- [ ] Hosted Postgres and Redis wired up (Supabase, Upstash)
+- [ ] Hosted services wired up (Neon, Upstash, Cloudflare R2)
 - [ ] Initial migration
 - [ ] CI pipeline
 - [ ] Google Cloud project and OAuth credentials
