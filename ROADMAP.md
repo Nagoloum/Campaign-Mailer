@@ -466,7 +466,7 @@ C'est la phase la plus risquée du projet. Elle mérite le plus de tests, et la 
 
 - Provisionner Railway : service backend, Postgres, worker BullMQ en process séparé.
   → skills : aucun
-- Provisionner les services de production : base Postgres, Redis (Upstash) et bucket R2. Trancher à ce moment si Neon reste la base de production ou si elle passe sur une offre sans scale-to-zero.
+- Provisionner les services de production : base Postgres, Redis (Upstash) et bucket R2. Trancher à ce moment si Neon reste la base de production ou si elle passe sur une offre sans scale-to-zero. Déployer le backend Railway dans une région **US East** : les trois services de données sont en us-east-1, et une API en Europe ajouterait un aller-retour transatlantique à chaque requête et chaque opération de queue.
   → skills : aucun
 - Déployer le frontend sur Vercel, configurer le domaine et le HTTPS.
   → skills : aucun

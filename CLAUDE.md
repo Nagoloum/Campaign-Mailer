@@ -56,6 +56,8 @@ Neon rather than Supabase for one reason worth remembering before suggesting a s
 
 Neon needs **two** connection strings. The pooled host carries `-pooler` and serves the API and the worker; the direct host has no `-pooler` and is used only by migrations, because the pooler does not support the session-level statements a migration runs.
 
+The provisioned services all sit in **us-east-1**: Neon project `campaign-mailer` (PostgreSQL 18.6), Upstash Redis `campaign-mailer`, and the Cloudflare R2 bucket `campaign-attachments` in the ENAM location. They are deliberately co-located, so the Railway backend belongs in a US East region too. Deploying the API to a European region would put a transatlantic round trip on every query and every queue operation.
+
 ## Architecture, and where the risk sits
 
 Four layers, and the boundaries matter:
