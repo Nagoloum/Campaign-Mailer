@@ -20,7 +20,7 @@ Current progress against the roadmap:
 - [x] Monorepo root: license, ignore rules, line-ending policy, editor config, workspaces
 - [x] Project `CLAUDE.md`
 - [x] Frontend workspace (React 19 + Vite + TypeScript + Tailwind + React Router)
-- [ ] Backend workspace (Express + TypeScript)
+- [x] Backend workspace (Express + TypeScript)
 - [ ] Quality tooling (ESLint, Prettier, husky)
 - [ ] Hosted Postgres and Redis wired up (Supabase, Upstash)
 - [ ] Initial migration
@@ -105,7 +105,9 @@ Run from the repository root. Each one delegates to every workspace that defines
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start frontend and backend in watch mode |
+| `npm run dev` | Start backend and frontend together in watch mode |
+| `npm run dev:backend` | Start the API alone on port 3000 |
+| `npm run dev:frontend` | Start the web app alone on port 5173 |
 | `npm run build` | Produce production builds |
 | `npm run lint` | Run ESLint |
 | `npm run format` | Run Prettier |

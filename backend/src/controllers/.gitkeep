@@ -1,0 +1,2 @@
+Controllers orchestrate a request: they call services and shape the response.
+They hold no business rule and no database call. See CONTRIBUTING.md.

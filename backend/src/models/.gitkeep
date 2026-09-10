@@ -1,0 +1,2 @@
+Row types and query builders for users, campaigns, contacts and logs. The
+schema is defined in section 5 of the specification.

@@ -1,0 +1,2 @@
+BullMQ queues and workers, run in a process separate from the API. The daily
+dispatch planner and the per-contact send job land here in Phase 4.

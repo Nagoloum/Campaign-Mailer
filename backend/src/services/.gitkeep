@@ -1,0 +1,4 @@
+Services hold the business rules and are the only layer that talks to the
+database or to an external API. The send engine lives here, and a defect in it
+is not recoverable: read the architecture section of CLAUDE.md before touching
+anything in this directory.

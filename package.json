@@ -18,7 +18,9 @@
     "backend"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently --names api,web --prefix-colors cyan,magenta --kill-others \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
@@ -27,5 +29,8 @@
     "test": "npm run test --workspaces --if-present",
     "migrate:latest": "npm run migrate:latest --workspace backend --if-present",
     "migrate:down": "npm run migrate:down --workspace backend --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }
