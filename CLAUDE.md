@@ -88,3 +88,9 @@ The owner develops on Windows 11 with PowerShell 5.1 and Node 24.
 ## Google OAuth verification
 
 `gmail.send` is a sensitive scope. In Testing mode the OAuth consent screen works immediately but is capped at 100 users. Verification for production can take weeks, which is why the roadmap files the request in Phase 0 rather than before launch. Adding a second sensitive scope would make that review heavier, so treat any new scope as an architectural decision.
+
+Two scopes are worse than sensitive: `gmail.readonly` and `gmail.modify` are **restricted**, and requesting either pulls the project into an annual third-party security assessment. The Phase 9 reply-detection feature is the only planned work that would need read access, so it is a decision to take deliberately rather than a scope to add in passing.
+
+While the app stays in Testing, refresh tokens expire after seven days. An `invalid_grant` in development usually means that, not a bug in the token service.
+
+The full console procedure, and what each OAuth error actually means, is in `docs/google-oauth-setup.md`.

@@ -125,7 +125,7 @@ Deux écarts au CDC sont volontaires (stockage objet au lieu de Drive, TypeScrip
   → skills : `migration`, `test-driven-development`
 - Configurer la CI GitHub Actions : lint + typecheck + tests + build sur chaque PR.
   → skills : aucun
-- Créer le projet Google Cloud : activer Gmail API, configurer l'écran de consentement OAuth, créer les identifiants client web, déclarer les URIs de redirection dev et prod.
+- Créer le projet Google Cloud : activer Gmail API, configurer l'écran de consentement OAuth, créer les identifiants client web, déclarer les URIs de redirection dev et prod, déposer la demande de vérification. Marche à suivre détaillée : `docs/google-oauth-setup.md`.
   → skills : aucun (action console, hors code)
 - Réduire les frictions de permissions de l'agent sur les commandes récurrentes du projet (`npm`, `git`, `docker compose`).
   → skills : `fewer-permission-prompts`

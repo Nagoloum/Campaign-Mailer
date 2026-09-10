@@ -58,6 +58,7 @@ campaign-mailer/
 ├── ROADMAP.md          Plan of record, phase by phase
 ├── CONTRIBUTING.md     Conventions and review process
 ├── CLAUDE.md           Repository guide for Claude Code
+├── docs/               Setup procedures and, from Phase 7, the runbook
 ├── LICENSE             Proprietary. All rights reserved.
 └── package.json        npm workspaces root
 ```
@@ -68,7 +69,7 @@ campaign-mailer/
 
 - Node.js 22 or later, npm 10 or later
 - Accounts on Neon (PostgreSQL), Upstash (Redis) and Cloudflare R2 (attachment storage). All three are used in development as well as in production, so nothing has to be installed locally and no Docker is needed. All three have a free tier that covers development.
-- A Google Cloud project with the Gmail API enabled and OAuth 2.0 web credentials
+- A Google Cloud project with the Gmail API enabled and OAuth 2.0 web credentials. Step by step in [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
 
 On Windows, set the PowerShell execution policy before installing the git hooks, or they will not run:
 
