@@ -1,5 +1,7 @@
 # Campaign Mailer
 
+[![CI](https://github.com/Nagoloum/Campaign-Mailer/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagoloum/Campaign-Mailer/actions/workflows/ci.yml)
+
 Web application to create, personalize and send email campaigns at scale, from the user's own Gmail account.
 
 Each user connects their Google account, imports a contact list, writes one template with merge variables, attaches a file such as a CV, then lets the application send the campaign at a controlled pace that respects Gmail's daily quota.
@@ -25,7 +27,7 @@ Current progress against the roadmap:
 - [x] Environment templates for both workspaces
 - [ ] Hosted services wired up (Neon, Upstash, Cloudflare R2)
 - [x] Initial migration (users, campaigns, contacts, logs)
-- [ ] CI pipeline
+- [x] CI pipeline (GitHub Actions)
 - [ ] Google Cloud project and OAuth credentials
 
 ---
