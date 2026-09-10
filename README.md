@@ -19,7 +19,7 @@ Current progress against the roadmap:
 - [x] Git identity and repository conventions
 - [x] Monorepo root: license, ignore rules, line-ending policy, editor config, workspaces
 - [x] Project `CLAUDE.md`
-- [ ] Frontend workspace (React 19 + Vite + TypeScript + Tailwind)
+- [x] Frontend workspace (React 19 + Vite + TypeScript + Tailwind + React Router)
 - [ ] Backend workspace (Express + TypeScript)
 - [ ] Quality tooling (ESLint, Prettier, husky)
 - [ ] Hosted Postgres and Redis wired up (Supabase, Upstash)

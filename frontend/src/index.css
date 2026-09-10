@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+
+/* Design tokens. The visual direction is settled in Phase 1; these are the
+   neutral defaults the scaffolding needs so nothing renders unstyled. */
+@theme {
+  --color-surface: oklch(99% 0 0);
+  --color-surface-raised: oklch(100% 0 0);
+  --color-border: oklch(91% 0.005 260);
+  --color-ink: oklch(24% 0.015 260);
+  --color-ink-muted: oklch(52% 0.015 260);
+  --color-accent: oklch(52% 0.19 258);
+  --color-accent-ink: oklch(99% 0 0);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
