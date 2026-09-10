@@ -48,9 +48,13 @@ Three choices contradict the written specification on purpose. Do not "correct" 
 
 - **TypeScript, not JavaScript.** The data model carries four state enums. A typo on a status string would corrupt the campaign state machine silently.
 - **Gmail API REST (`users.messages.send`), not Nodemailer SMTP.** PaaS hosts block or throttle outbound SMTP, and the REST call reuses the OAuth token already obtained at login. Nodemailer may still be used to build the MIME payload.
-- **S3-compatible object storage, not Google Drive.** Drive would add a second sensitive OAuth scope alongside `gmail.send`, which makes Google's verification heavier, and the attachment is re-read on every send.
+- **S3-compatible object storage (Cloudflare R2), not Google Drive.** Drive would add a second sensitive OAuth scope alongside `gmail.send`, which makes Google's verification heavier, and the attachment is re-read on every send.
 
-Postgres and Redis are **hosted from the start** (Supabase and Upstash), not run locally in Docker. Docker is not installed on the owner's machine, and using the same services in development and production removes a class of environment drift. This means real connection strings live in `backend/.env` from Phase 0 onward; `.gitignore` already blocks `.env`.
+Postgres, Redis and the attachment bucket are **hosted from the start** — Neon, Upstash and Cloudflare R2 — not run locally in Docker. Docker is not installed on the owner's machine, and using the same services in development and production removes a class of environment drift. This means real connection strings live in `backend/.env` from Phase 0 onward; `.gitignore` already blocks `.env`.
+
+Neon rather than Supabase for one reason worth remembering before suggesting a switch back: Supabase caps its free tier at two active projects per owner, and the owner's quota is already full. Neon's free plan scales the compute to zero after five minutes idle, which makes development effectively free but would not carry a 24/7 production API within the monthly compute allowance. The production database is a Phase 8 decision, deliberately left open.
+
+Neon needs **two** connection strings. The pooled host carries `-pooler` and serves the API and the worker; the direct host has no `-pooler` and is used only by migrations, because the pooler does not support the session-level statements a migration runs.
 
 ## Architecture, and where the risk sits
 

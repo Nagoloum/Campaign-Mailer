@@ -34,16 +34,16 @@ Current progress against the roadmap:
 
 Decided on 10 September 2026. The reasoning, including three deliberate departures from the specification, is in the decision table of [ROADMAP.md](ROADMAP.md#phase-0--fondations-et-décisions-gelées).
 
-| Layer       | Choice                                                          |
-| ----------- | --------------------------------------------------------------- |
-| Frontend    | React 19, Vite, TypeScript, Tailwind CSS, React Router          |
-| Backend     | Node.js, Express, TypeScript                                    |
-| Database    | PostgreSQL                                                      |
-| Queue       | BullMQ on Redis                                                 |
-| Email       | Gmail API (`users.messages.send`) over OAuth 2.0                |
-| Auth        | Passport.js, Google OAuth 2.0 strategy                          |
-| Attachments | S3-compatible object storage                                    |
-| Hosting     | Vercel (frontend), Railway (backend, Postgres), Upstash (Redis) |
+| Layer       | Choice                                                        |
+| ----------- | ------------------------------------------------------------- |
+| Frontend    | React 19, Vite, TypeScript, Tailwind CSS, React Router        |
+| Backend     | Node.js, Express, TypeScript                                  |
+| Database    | PostgreSQL on Neon                                            |
+| Queue       | BullMQ on Redis (Upstash)                                     |
+| Email       | Gmail API (`users.messages.send`) over OAuth 2.0              |
+| Auth        | Passport.js, Google OAuth 2.0 strategy                        |
+| Attachments | Cloudflare R2, S3-compatible                                  |
+| Hosting     | Vercel (frontend), Railway (backend); production database TBD |
 
 ---
 
@@ -65,7 +65,7 @@ campaign-mailer/
 ## Requirements
 
 - Node.js 22 or later, npm 10 or later
-- A PostgreSQL database and a Redis instance. The project uses hosted services in development as well as in production: Supabase for Postgres, Upstash for Redis. No local database installation is needed.
+- Accounts on Neon (PostgreSQL), Upstash (Redis) and Cloudflare R2 (attachment storage). All three are used in development as well as in production, so nothing has to be installed locally and no Docker is needed. All three have a free tier that covers development.
 - A Google Cloud project with the Gmail API enabled and OAuth 2.0 web credentials
 
 On Windows, set the PowerShell execution policy before installing the git hooks, or they will not run:
