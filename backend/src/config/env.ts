@@ -57,6 +57,9 @@ function nodeEnv(): NodeEnv {
 export const env = {
   nodeEnv: nodeEnv(),
   port: optionalPort('PORT', 3000),
+  // Protects the Google tokens at rest. Required rather than optional: a
+  // process that starts without it would store readable refresh tokens.
+  encryptionKey: required('ENCRYPTION_KEY'),
 } as const
 
 export const isProduction = env.nodeEnv === 'production'

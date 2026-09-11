@@ -1,0 +1,7 @@
+{
+  // The build emits the application only. tsconfig.json keeps the tests in the
+  // program so `typecheck` still covers them, but they have no business in
+  // dist/, where they would ship to production and pull the test runner in.
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts"]
+}

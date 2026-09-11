@@ -34,8 +34,33 @@ export default tseslint.config(
     },
     rules: {
       /* A floating promise in the send engine is a send whose failure nobody
-         sees. Escalated from the default. */
-      '@typescript-eslint/no-floating-promises': 'error',
+         sees. Escalated from the default.
+
+         node:test's describe and it return promises that the runner owns and
+         awaits itself. They are listed as known-safe rather than the rule
+         being relaxed in test files: a genuine floating promise inside a test
+         is still a defect worth catching. */
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        {
+          allowForKnownSafeCalls: [
+            {
+              from: 'package',
+              package: 'node:test',
+              name: [
+                'describe',
+                'it',
+                'test',
+                'suite',
+                'before',
+                'after',
+                'beforeEach',
+                'afterEach',
+              ],
+            },
+          ],
+        },
+      ],
       '@typescript-eslint/no-misused-promises': 'error',
 
       /* CONTRIBUTING.md: no `any` without a comment saying why it cannot be

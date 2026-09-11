@@ -38,7 +38,13 @@ npm run migrate:latest   # apply pending migrations (backend workspace)
 npm run migrate:down     # roll back the last migration
 ```
 
-Target a single workspace with `npm run <script> --workspace backend`. Running a single test file will be `npm test --workspace backend -- <path>` once a runner is chosen; the choice is a Phase 7 decision and is not made yet.
+Target a single workspace with `npm run <script> --workspace backend`.
+
+Backend tests use Node's built-in runner through tsx: `tsx --test "src/**/*.test.ts"`. Run one file with `npx tsx --test src/services/encryption.test.ts` from `backend/`, and `npm run test:watch` while working on one.
+
+Choosing the runner was a Phase 7 item, pulled forward in Phase 1 because test-driven work needs it from the first service. `node:test` adds no dependency and needs no configuration, which is why it won over vitest for a project this size. The frontend has no runner yet.
+
+Test files live beside the code they cover, as `*.test.ts`. `tsconfig.json` keeps them in the program so `typecheck` covers them; `tsconfig.build.json` excludes them so they never reach `dist/`.
 
 ## Stack, and the three deliberate departures from the specification
 

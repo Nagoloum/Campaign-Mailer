@@ -127,7 +127,7 @@ Run from the repository root. Each one delegates to every workspace that defines
 | `npm run format`         | Rewrite the repository with Prettier              |
 | `npm run format:check`   | Fail if anything is unformatted                   |
 | `npm run typecheck`      | Run `tsc --noEmit` in both workspaces             |
-| `npm test`               | Run the test suites                               |
+| `npm test`               | Run the test suites (Node's runner, via tsx)      |
 | `npm run verify`         | Format check, lint, typecheck and build, in order |
 | `npm run migrate:latest` | Apply pending database migrations                 |
 | `npm run migrate:down`   | Roll back the last migration                      |
