@@ -27,6 +27,15 @@ export function buildStrategyOptions(config: GoogleOAuthConfig) {
     clientID: config.clientId,
     clientSecret: config.clientSecret,
     callbackURL: config.callbackUrl,
+    // Belongs here, not in the authorization options. passport-oauth2 reads
+    // `state` at construction to install a session-backed state store; passed
+    // to authenticate() instead, it is treated as a literal value to forward
+    // and no CSRF protection is installed at all.
+    //
+    // The state ties the callback to the session that began the flow. Without
+    // it an attacker can make a victim's browser finish an OAuth flow the
+    // victim never started, signing them into the attacker's account.
+    state: true,
   }
 }
 

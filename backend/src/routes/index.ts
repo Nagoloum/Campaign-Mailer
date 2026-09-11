@@ -1,5 +1,7 @@
 import { Router } from 'express'
 
+import { authRouter } from './auth.js'
+
 /**
  * Every API route mounts here under /api. The auth, campaigns, contacts,
  * files and stats routers arrive with their phases; see section 6 of the
@@ -15,3 +17,5 @@ export const apiRouter = Router()
 apiRouter.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: Math.round(process.uptime()) })
 })
+
+apiRouter.use('/auth', authRouter)

@@ -51,6 +51,13 @@ describe('buildStrategyOptions', () => {
     assert.equal(options.clientSecret, CONFIG.clientSecret)
     assert.equal(options.callbackURL, CONFIG.callbackUrl)
   })
+
+  it('installs the OAuth state store', () => {
+    // passport-oauth2 reads `state` at construction. Passed to authenticate()
+    // instead, it becomes a literal value to forward and no CSRF protection
+    // is installed.
+    assert.equal(buildStrategyOptions(CONFIG).state, true)
+  })
 })
 
 describe('GOOGLE_SCOPES', () => {

@@ -22,10 +22,10 @@
     "connect-redis": "^10.0.0",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
-    "ioredis": "^6.0.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "redis": "^6.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

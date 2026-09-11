@@ -85,6 +85,10 @@ Two other sensitive areas: Google access and refresh tokens are encrypted at res
 
 Sessions live in Redis and the cookie carries nothing but a session id; the session itself holds only the user id, so a Redis dump exposes no email and no token. The cookie is `sameSite: 'lax'`, not `'strict'` — Google redirects the browser back to the callback, and a strict cookie is withheld on that navigation, which breaks the OAuth state check and reads as a broken login. `createApp` takes the session store as an argument so a test can build the application without a Redis connection.
 
+**The session store uses node-redis, not ioredis.** connect-redis 10 declares `redis >= 5` as its peer and calls `client.set(key, value, { expiration: … })`, an options object ioredis does not parse: paired with ioredis every session write fails with `ERR syntax error` and no session is ever stored. BullMQ, on the other hand, requires ioredis, so Phase 4 adds that client alongside this one. Two Redis libraries is deliberate — each used with the partner it supports.
+
+`state: true` belongs in the **strategy** options, not in the options passed to `passport.authenticate`. passport-oauth2 reads it at construction to install a session-backed state store; passed to `authenticate()` it is treated as a literal value to forward, and no CSRF protection is installed while the code still looks correct.
+
 The database schema is defined in section 5 of the specification: `users`, `campaigns`, `contacts`, `logs`. Every migration ships with a working rollback.
 
 ## Environment notes

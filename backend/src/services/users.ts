@@ -28,6 +28,28 @@ export interface UserRow {
   updated_at: Date
 }
 
+/** The only shape of a user that may cross the API boundary. */
+export interface PublicUser {
+  id: string
+  email: string
+  createdAt: string
+}
+
+/**
+ * Whitelists the fields the API may return.
+ *
+ * A whitelist rather than deleting the sensitive ones: a column added to the
+ * table later is excluded by default instead of leaking until someone
+ * remembers to hide it.
+ */
+export function toPublicUser(user: UserRow): PublicUser {
+  return {
+    id: user.id,
+    email: user.email,
+    createdAt: new Date(user.created_at).toISOString(),
+  }
+}
+
 export interface UserRepository {
   upsertFromGoogle(input: UpsertGoogleUser): Promise<UserRow>
   /** Used to rebuild the request user from the session. Null when the account is gone. */

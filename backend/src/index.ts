@@ -3,7 +3,12 @@ import { RedisStore } from 'connect-redis'
 import { createApp } from './app.js'
 import { env } from './config/env.js'
 import { closePool } from './db/pool.js'
-import { closeRedis, redis } from './db/redis.js'
+import { closeRedis, connectRedis, redis } from './db/redis.js'
+
+// node-redis connects explicitly, and the session store is unusable until it
+// does. Failing here rather than on the first sign-in keeps a misconfigured
+// Redis from looking like a broken login.
+await connectRedis()
 
 const app = createApp({
   sessionStore: new RedisStore({ client: redis, prefix: 'cm:sess:' }),
