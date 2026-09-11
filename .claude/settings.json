@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run format:check)",
+      "Bash(npm test)",
+      "PowerShell(npm run typecheck)",
+      "PowerShell(npm run lint)",
+      "PowerShell(npm run format:check)",
+      "PowerShell(npm test)",
+      "mcp__neon__list_projects",
+      "mcp__neon__list_organizations",
+      "mcp__neon__describe_project",
+      "mcp__neon__list_branches",
+      "mcp__neon__list_postgres_endpoints",
+      "mcp__neon__list_postgres_databases",
+      "mcp__neon__describe_table_schema",
+      "mcp__neon__get_database_tables",
+      "mcp__upstash__redis_list_databases"
+    ]
+  }
+}
