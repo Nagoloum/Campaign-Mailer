@@ -19,9 +19,30 @@ import { env } from './env.js'
  * the Redis-backed session is the next step.
  */
 export function configurePassport(): typeof passport {
+  const users = createUserRepository(pool)
+
   const handleGoogleProfile = createGoogleProfileHandler({
-    users: createUserRepository(pool),
+    users,
     cipher: createTokenCipher(env.encryptionKey),
+  })
+
+  // Only the id goes into the session. Storing the row would put an email, and
+  // one day a token, into Redis and into every session read.
+  passport.serializeUser((user, done) => {
+    done(null, (user as { id: string }).id)
+  })
+
+  passport.deserializeUser((id: string, done) => {
+    users
+      .findById(id)
+      // A deleted account leaves a live cookie behind. `false` makes Passport
+      // treat the request as signed out rather than throwing on every call.
+      .then((user) => {
+        done(null, user ?? false)
+      })
+      .catch((err: unknown) => {
+        done(err instanceof Error ? err : new Error('Failed to load the session user'))
+      })
   })
 
   passport.use(

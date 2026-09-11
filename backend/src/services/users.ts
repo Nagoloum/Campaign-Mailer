@@ -30,6 +30,8 @@ export interface UserRow {
 
 export interface UserRepository {
   upsertFromGoogle(input: UpsertGoogleUser): Promise<UserRow>
+  /** Used to rebuild the request user from the session. Null when the account is gone. */
+  findById(id: string): Promise<UserRow | null>
 }
 
 const UPSERT_SQL = `
@@ -64,6 +66,15 @@ export function createUserRepository(pool: Pool): UserRepository {
       }
 
       return row
+    },
+
+    async findById(id) {
+      const { rows } = await pool.query<UserRow>(
+        'SELECT id, email, google_id, created_at, updated_at FROM users WHERE id = $1',
+        [id],
+      )
+
+      return rows[0] ?? null
     },
   }
 }

@@ -83,6 +83,8 @@ The send engine, spread across `services/` and `jobs/`, is the part of this code
 
 Two other sensitive areas: Google access and refresh tokens are encrypted at rest with AES-256-GCM and must never appear in a log line, an error message or an API response; and every value interpolated into an email template is attacker-controlled input from a CSV file, so it is escaped without exception.
 
+Sessions live in Redis and the cookie carries nothing but a session id; the session itself holds only the user id, so a Redis dump exposes no email and no token. The cookie is `sameSite: 'lax'`, not `'strict'` — Google redirects the browser back to the callback, and a strict cookie is withheld on that navigation, which breaks the OAuth state check and reads as a broken login. `createApp` takes the session store as an argument so a test can build the application without a Redis connection.
+
 The database schema is defined in section 5 of the specification: `users`, `campaigns`, `contacts`, `logs`. Every migration ships with a working rollback.
 
 ## Environment notes

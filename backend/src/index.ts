@@ -1,7 +1,13 @@
+import { RedisStore } from 'connect-redis'
+
 import { createApp } from './app.js'
 import { env } from './config/env.js'
+import { closePool } from './db/pool.js'
+import { closeRedis, redis } from './db/redis.js'
 
-const app = createApp()
+const app = createApp({
+  sessionStore: new RedisStore({ client: redis, prefix: 'cm:sess:' }),
+})
 
 const server = app.listen(env.port, () => {
   console.log(`API listening on http://localhost:${env.port} [${env.nodeEnv}]`)
@@ -22,7 +28,15 @@ function shutdown(signal: string): void {
       process.exit(1)
     }
 
-    process.exit(0)
+    // Release the database and Redis connections, so the host does not have to
+    // wait for them to time out on its side.
+    Promise.allSettled([closePool(), closeRedis()])
+      .then(() => {
+        process.exit(0)
+      })
+      .catch(() => {
+        process.exit(1)
+      })
   })
 
   // Do not hang forever on a stuck connection.

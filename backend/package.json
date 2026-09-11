@@ -19,7 +19,10 @@
     "migrate:create": "npm run migrate -- create"
   },
   "dependencies": {
+    "connect-redis": "^10.0.0",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "ioredis": "^6.0.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.23.0"
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
     "@types/node": "^24.13.4",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",

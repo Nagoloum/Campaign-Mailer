@@ -64,6 +64,11 @@ export const env = {
   // The pooled Neon host. Migrations use DATABASE_DIRECT_URL instead.
   databaseUrl: required('DATABASE_URL'),
 
+  redisUrl: required('REDIS_URL'),
+
+  // Signs the session cookie. Rotating it signs everyone out.
+  sessionSecret: required('SESSION_SECRET'),
+
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
 
   google: {

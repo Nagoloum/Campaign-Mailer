@@ -37,6 +37,9 @@ function fakeRepository(): UserRepository & { calls: UpsertGoogleUser[] } {
       calls.push(input)
       return Promise.resolve({ id: 'user-uuid', email: input.email } as UserRow)
     },
+    findById() {
+      return Promise.resolve(null)
+    },
   }
 }
 
