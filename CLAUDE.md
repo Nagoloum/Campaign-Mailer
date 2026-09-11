@@ -83,6 +83,7 @@ The owner develops on Windows 11 with PowerShell 5.1 and Node 24.
 
 - `.gitattributes` normalizes the repository to LF. Do not add files that fight it.
 - PowerShell's execution policy is `Restricted` on this machine, which prevents `.ps1` scripts from running. This will break husky hooks and any npm binary shipped as `.ps1`. Fix without admin rights: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+- **GitHub Actions does not run.** As of 11 September 2026 the API answers `422: Actions has been disabled for this user` on a dispatch, while the repository's own setting reports `enabled: true` and the workflow reports `state: active`. The restriction sits on the account, not the repository, so no change to `ci.yml` or to repository settings will lift it. The owner has to resolve it at github.com (billing, email verification, or support). Until then the pipeline is untested and `npm run verify` locally is the only gate.
 - A broken npm was diagnosed and fixed on 10 September 2026: a stale `minipass` 3.3.6 nested under npm's own `minizlib` shadowed `minipass` 7.1.2, and since minizlib v3 reads the named `Minipass` export that 3.x does not provide, every npm command on the machine failed with `Class extends value undefined is not a constructor or null`. If that error reappears after a Node upgrade, look for a nested `minipass` under `node_modules/npm/node_modules/minizlib/` and remove it.
 
 ## Google OAuth verification

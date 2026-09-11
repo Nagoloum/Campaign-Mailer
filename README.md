@@ -27,7 +27,8 @@ Current progress against the roadmap:
 - [x] Environment templates for both workspaces
 - [ ] Hosted services wired up (Neon, Upstash, Cloudflare R2)
 - [x] Initial migration (users, campaigns, contacts, logs)
-- [x] CI pipeline (GitHub Actions)
+- [x] CI pipeline (GitHub Actions) — written, but not running: Actions is disabled on the account
+- [x] Tracker populated from the roadmap (128 issues, 10 milestones)
 - [ ] Google Cloud project and OAuth credentials
 
 ---
