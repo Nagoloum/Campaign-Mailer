@@ -60,6 +60,19 @@ export const env = {
   // Protects the Google tokens at rest. Required rather than optional: a
   // process that starts without it would store readable refresh tokens.
   encryptionKey: required('ENCRYPTION_KEY'),
+
+  // The pooled Neon host. Migrations use DATABASE_DIRECT_URL instead.
+  databaseUrl: required('DATABASE_URL'),
+
+  frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+
+  google: {
+    clientId: required('GOOGLE_CLIENT_ID'),
+    clientSecret: required('GOOGLE_CLIENT_SECRET'),
+    // Must match a registered redirect URI character for character, or Google
+    // answers redirect_uri_mismatch. See docs/google-oauth-setup.md.
+    callbackUrl: required('GOOGLE_CALLBACK_URL'),
+  },
 } as const
 
 export const isProduction = env.nodeEnv === 'production'
