@@ -1,13 +1,15 @@
-import { Router } from 'express'
+import express, { Router } from 'express'
 
 import { pool } from '../db/pool.js'
 import { requireAuth } from '../middleware/auth.js'
 import { createCampaignRepository } from '../services/campaigns.js'
+import { createContactRepository } from '../services/contacts.js'
 import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
 import { TEMPLATE_VARIABLES } from '../services/template.js'
 
 import { authRouter } from './auth.js'
 import { createCampaignRouter } from './campaigns.js'
+import { createContactRouter } from './contacts.js'
 
 /**
  * Every API route mounts here under /api. The auth, campaigns, contacts,
@@ -26,7 +28,19 @@ apiRouter.get('/health', (_req, res) => {
 })
 
 apiRouter.use('/auth', authRouter)
-apiRouter.use('/campaigns', createCampaignRouter(createCampaignRepository(pool)))
+const campaignRepository = createCampaignRepository(pool)
+
+apiRouter.use('/campaigns', createCampaignRouter(campaignRepository))
+apiRouter.use(
+  '/campaigns/:id/contacts',
+  // A batch of rows is larger than the default body limit, and raising it
+  // globally would let any route accept five megabytes.
+  express.json({ limit: '5mb' }),
+  createContactRouter({
+    campaigns: campaignRepository,
+    contacts: createContactRepository(pool),
+  }),
+)
 
 /**
  * The starter templates, served rather than duplicated in the web app, so the
