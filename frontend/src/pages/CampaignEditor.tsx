@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { CadenceForm } from '@/components/CadenceForm'
 import { PreviewPanel } from '@/components/PreviewPanel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { ApiError } from '@/services/api'
-import { campaignsApi, isEditable, type Campaign } from '@/services/campaigns'
+import {
+  campaignsApi,
+  canEditCadence,
+  isEditable,
+  type Campaign,
+} from '@/services/campaigns'
 
 type Load =
   { state: 'loading' } | { state: 'ready'; campaign: Campaign } | { state: 'missing' }
@@ -170,6 +176,16 @@ export function CampaignEditor() {
             {error}
           </p>
         )}
+
+        <div className="mt-8 border-t border-border pt-6">
+          <CadenceForm
+            campaign={campaign}
+            disabled={!canEditCadence(campaign.status)}
+            onSaved={(updated) => {
+              setLoad({ state: 'ready', campaign: updated })
+            }}
+          />
+        </div>
 
         <div className="mt-8 border-t border-border pt-6">
           <PreviewPanel

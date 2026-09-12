@@ -94,3 +94,11 @@ export function statusLabel(status: CampaignStatus): string {
 export function isEditable(status: CampaignStatus): boolean {
   return status === 'draft'
 }
+
+/**
+ * The pace stays editable while the campaign is not actively sending. Mirrors
+ * the server rule, so the interface never offers an action the API refuses.
+ */
+export function canEditCadence(status: CampaignStatus): boolean {
+  return status === 'draft' || status === 'scheduled' || status === 'paused'
+}
