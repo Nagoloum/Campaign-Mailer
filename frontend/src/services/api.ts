@@ -1,0 +1,69 @@
+/**
+ * The single place the web app talks to the API.
+ *
+ * Every request sends credentials, because authentication is a cookie the
+ * browser will otherwise withhold on a cross-origin call. In development the
+ * Vite proxy keeps both on one origin; in production they sit behind one
+ * domain. Either way, omitting this is the mistake that makes a working login
+ * look broken on the very next request.
+ */
+
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let response: Response
+
+  try {
+    response = await fetch(`/api${path}`, {
+      credentials: 'include',
+      headers: { accept: 'application/json', ...init.headers },
+      ...init,
+    })
+  } catch {
+    // fetch rejects only when the request never completed: offline, DNS,
+    // the API down. Worth its own message, because it is not the API saying no.
+    throw new ApiError(0, 'Impossible de joindre le serveur')
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  const body: unknown = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      body &&
+      typeof body === 'object' &&
+      'error' in body &&
+      typeof body.error === 'string'
+        ? body.error
+        : `Erreur ${String(response.status)}`
+
+    throw new ApiError(response.status, message)
+  }
+
+  return body as T
+}
+
+export const api = {
+  get: <T>(path: string) => request<T>(path),
+  post: <T>(path: string, payload?: unknown) =>
+    request<T>(path, {
+      method: 'POST',
+      ...(payload === undefined
+        ? {}
+        : {
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          }),
+    }),
+}

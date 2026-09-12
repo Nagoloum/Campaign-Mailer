@@ -1,14 +1,14 @@
 import { createBrowserRouter } from 'react-router-dom'
 
 import { AppLayout } from '@/components/AppLayout'
+import { RequireAuth } from '@/components/RequireAuth'
 import { Dashboard } from '@/pages/Dashboard'
 import { Login } from '@/pages/Login'
 import { NotFound } from '@/pages/NotFound'
 
 /**
- * Route table. Authenticated routes sit under AppLayout; Login stands alone
- * because it has no navigation. The route guard that keeps unauthenticated
- * visitors out of AppLayout is added in Phase 1, with the auth state.
+ * Route table. Login stands alone because it has no navigation; everything
+ * else sits behind RequireAuth, inside the application shell.
  */
 export const router = createBrowserRouter([
   {
@@ -16,9 +16,14 @@ export const router = createBrowserRouter([
     element: <Login />,
   },
   {
-    path: '/',
-    element: <AppLayout />,
-    children: [{ index: true, element: <Dashboard /> }],
+    element: <RequireAuth />,
+    children: [
+      {
+        path: '/',
+        element: <AppLayout />,
+        children: [{ index: true, element: <Dashboard /> }],
+      },
+    ],
   },
   {
     path: '*',
