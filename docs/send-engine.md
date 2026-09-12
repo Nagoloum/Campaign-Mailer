@@ -1,0 +1,167 @@
+# The send engine
+
+How a campaign becomes messages, and what happens when something goes wrong.
+
+This is the part of the codebase where a defect is not recoverable. A duplicate
+email reaches a real person and cannot be unsent; an over-aggressive run gets a
+user's Google account suspended. Everything below is written for those two
+failures, not for the happy path.
+
+---
+
+## The shape
+
+Two queues on BullMQ.
+
+**`campaign-dispatch`** runs on a schedule. For every campaign in `running` it
+works out how many messages may go out today, takes that many `pending`
+contacts, and schedules one send job for each.
+
+**`email-send`** carries one job per contact. A job claims its contact, asks
+Gmail to send, and records the outcome.
+
+Planning and sending are separate because they fail differently. Planning is
+cheap, idempotent and can be repeated; sending is the irreversible act.
+
+---
+
+## Idempotency, in three layers
+
+A contact must never receive the same campaign email twice, including after a
+worker is killed mid-run and restarted. Three independent mechanisms, because
+any one of them can be defeated on its own.
+
+### 1. The job id is the contact id
+
+A send job is enqueued as `send:<contactId>`. BullMQ refuses a second job with
+an id already present, so re-planning the same day — after a restart, or
+because the schedule fired twice — cannot enqueue the same contact twice.
+
+This alone is not enough: a completed job's id is eventually cleaned up.
+
+### 2. The claim
+
+Before anything is sent, the job claims its contact with one conditional
+statement:
+
+```sql
+UPDATE contacts
+SET claimed_at = now()
+WHERE id = $1
+  AND status = 'pending'
+  AND (claimed_at IS NULL OR claimed_at < now() - interval '10 minutes')
+RETURNING id
+```
+
+No row returned means another worker holds it, or it is no longer pending. The
+job exits successfully: there is nothing to do, and failing would only schedule
+a retry of a send that is already happening.
+
+The ten-minute expiry exists for the worker that dies holding a claim. Without
+it the contact is stranded forever; with it, it is reconsidered.
+
+### 3. The unique index
+
+`logs_one_sent_per_contact_idx` allows at most one `sent` event per contact,
+ever. The row is inserted in the same transaction that marks the contact sent,
+so a second recording fails at the database rather than in application code
+that might have been changed since.
+
+---
+
+## The ambiguous case, and the choice it forces
+
+Sending happens before recording. There is no way around that: Gmail has no
+idempotency key, so the API call is made, and only then can the outcome be
+written down.
+
+If the process dies in that window, the contact is left claimed, with an
+attempt counted and no `sent` log. Nothing can tell whether the message left.
+
+**The policy is not to retry it.** The contact is marked `failed` with a message
+saying the outcome is unknown, and the user decides.
+
+That is the trade-off stated plainly: a missed email is recoverable by the
+person who notices it, a duplicate is not. Anyone changing this should know
+they are choosing the opposite.
+
+Recognising the case needs `attempts` to be incremented immediately before the
+API call and nowhere else, so a contact with `attempts > 0`, no `sent` log and
+an expired claim is exactly the ambiguous one.
+
+---
+
+## Cadence
+
+Each campaign carries `mails_per_day`, `start_hour`, `pause_ms` and a time
+zone. The planner resolves the start hour in the campaign's zone, not the
+server's: a campaign set to nine in the morning must follow daylight saving,
+which is why the schema stores an IANA zone and the validator refuses a fixed
+offset.
+
+Jobs are delayed, one per contact, spaced by `pause_ms` plus a random jitter of
+up to twenty percent. The jitter is not decoration: a perfectly regular
+interval is a signature, and sending in a burst is what gets an account
+flagged.
+
+---
+
+## Quotas
+
+Two ceilings, checked before planning and again before each send.
+
+**The campaign's own**, `mails_per_day`, counted against what that campaign has
+already sent during its local day.
+
+**The account's**, `GMAIL_DAILY_LIMIT`, counted across every campaign the user
+owns. It sits below Google's real ceiling — roughly 150 a day on a personal
+account — so the messages a user sends by hand from the same mailbox do not
+push them over it.
+
+Reaching the account ceiling pauses the campaign and records why. It does not
+fail the contacts: they stay `pending` and go out tomorrow.
+
+---
+
+## Failures, and which ones are worth retrying
+
+Three kinds, and conflating them is how a queue spends its attempts against a
+wall.
+
+| Kind          | Examples                                         | What happens                                                                                           |
+| ------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Transient     | 429, 500, 503, a socket error                    | Retried, three attempts, exponential backoff from one minute. Marked `failed` only after the last one. |
+| Permanent     | 400 on a malformed recipient, a rejected address | Marked `failed` immediately, with the reason. No retry can help.                                       |
+| Authorization | `invalid_grant`, a revoked token                 | The **campaign is paused** and the user is told to reconnect. Contacts stay `pending`.                 |
+
+The third is the one worth care. It is not a property of the contact, so
+failing contacts one by one would burn through a list for a reason that has
+nothing to do with any of them.
+
+---
+
+## Recording
+
+Every outcome writes a row in `logs` and updates the contact, in one
+transaction with the campaign's counters. A count that disagrees with the rows
+is worse than no count, because it is believed.
+
+A campaign moves to `completed` when no contact is left `pending` — checked
+after each send rather than on a schedule, so the state is right the moment it
+becomes true.
+
+---
+
+## What is deliberately not here
+
+**No open or click tracking.** It needs a pixel and a redirect service, it
+degrades deliverability, and it carries a consent obligation. Phase 9, as a
+decision of its own.
+
+**No sending on behalf of anyone but the signed-in user.** Every message uses
+that user's own token and leaves from their own mailbox. There is no shared
+sender and no relay.
+
+**No bounce handling.** Gmail reports a hard failure at send time; a bounce that
+arrives later lands in the user's inbox, where they can see it. Reading it back
+would need a mailbox scope this application deliberately does not request.

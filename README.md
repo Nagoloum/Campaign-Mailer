@@ -25,11 +25,12 @@ Current progress against the roadmap:
 - [x] Backend workspace (Express + TypeScript)
 - [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
 - [x] Environment templates for both workspaces
-- [ ] Hosted services wired up (Neon and Upstash done; the two Cloudflare R2 keys are still missing)
+- [x] Hosted services wired up (Neon, Upstash, Cloudflare R2 — the R2 token is scoped to the one bucket)
 - [x] Initial migration (users, campaigns, contacts, logs)
 - [x] CI pipeline (GitHub Actions) — written, but not running: Actions is disabled on the account
 - [x] Tracker populated from the roadmap (128 issues, 10 milestones)
-- [ ] Google Cloud project and OAuth credentials
+- [x] Google Cloud project and OAuth credentials (a real account has signed in and holds a refresh token)
+- [ ] Google verification request filed — until it is, the consent screen is capped at the test users, and refresh tokens expire after seven days
 
 ---
 
