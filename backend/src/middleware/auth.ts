@@ -8,6 +8,11 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express'
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+/** Shared, so every route that takes an id in the path checks it the same way. */
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID.test(value)
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const user = req.user as { id: string } | undefined
 

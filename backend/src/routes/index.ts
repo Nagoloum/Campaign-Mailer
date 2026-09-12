@@ -1,6 +1,10 @@
 import { Router } from 'express'
 
+import { pool } from '../db/pool.js'
+import { createCampaignRepository } from '../services/campaigns.js'
+
 import { authRouter } from './auth.js'
+import { createCampaignRouter } from './campaigns.js'
 
 /**
  * Every API route mounts here under /api. The auth, campaigns, contacts,
@@ -19,3 +23,4 @@ apiRouter.get('/health', (_req, res) => {
 })
 
 apiRouter.use('/auth', authRouter)
+apiRouter.use('/campaigns', createCampaignRouter(createCampaignRepository(pool)))
