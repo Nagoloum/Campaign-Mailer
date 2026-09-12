@@ -150,11 +150,14 @@ describe('createGoogleProfileHandler', () => {
     const before = Date.now()
 
     await handle('access-token', 'refresh', profile(), { expires_in: 3599 })
+    const after = Date.now()
 
     const expiry = users.calls[0]?.accessTokenExpiresAt
     assert.ok(expiry instanceof Date)
-    assert.ok(expiry.getTime() > before)
-    assert.ok(expiry.getTime() <= before + 3599 * 1000)
+    // A window, not an equality: the clock moves between `before` and the
+    // call, so pinning it to the millisecond makes the test fail at random.
+    assert.ok(expiry.getTime() >= before + 3599 * 1000)
+    assert.ok(expiry.getTime() <= after + 3599 * 1000)
   })
 
   it('leaves the expiry unset when Google does not say', async () => {
