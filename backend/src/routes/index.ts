@@ -1,7 +1,10 @@
 import { Router } from 'express'
 
 import { pool } from '../db/pool.js'
+import { requireAuth } from '../middleware/auth.js'
 import { createCampaignRepository } from '../services/campaigns.js'
+import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
+import { TEMPLATE_VARIABLES } from '../services/template.js'
 
 import { authRouter } from './auth.js'
 import { createCampaignRouter } from './campaigns.js'
@@ -24,3 +27,11 @@ apiRouter.get('/health', (_req, res) => {
 
 apiRouter.use('/auth', authRouter)
 apiRouter.use('/campaigns', createCampaignRouter(createCampaignRepository(pool)))
+
+/**
+ * The starter templates, served rather than duplicated in the web app, so the
+ * variable names in them cannot drift from the ones the merge engine resolves.
+ */
+apiRouter.get('/templates', requireAuth, (_req, res) => {
+  res.json({ templates: STARTER_TEMPLATES, variables: TEMPLATE_VARIABLES })
+})
