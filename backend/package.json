@@ -38,6 +38,7 @@
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/node": "^24.13.4",
+    "@types/papaparse": "^5.5.2",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/pg": "^8.23.1",
@@ -45,6 +46,7 @@
     "eslint-plugin-security": "^4.0.1",
     "globals": "^17.12.0",
     "node-pg-migrate": "^9.0.0",
+    "papaparse": "^5.7.0",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0"
