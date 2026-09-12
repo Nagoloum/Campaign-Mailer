@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { AttachmentPanel } from '@/components/AttachmentPanel'
 import { CadenceForm } from '@/components/CadenceForm'
+import { ContactTable } from '@/components/ContactTable'
+import { CsvImport } from '@/components/CsvImport'
 import { PreviewPanel } from '@/components/PreviewPanel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateEditor } from '@/components/TemplateEditor'
@@ -30,6 +33,8 @@ export function CampaignEditor() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Bumped when contacts change, so the table and the counters reload together.
+  const [contactsVersion, setContactsVersion] = useState(0)
 
   const refresh = useCallback(async () => {
     if (!id) {
@@ -176,6 +181,34 @@ export function CampaignEditor() {
             {error}
           </p>
         )}
+
+        <div className="mt-8 border-t border-border pt-6">
+          <AttachmentPanel
+            campaignId={campaign.id}
+            attachmentName={campaign.attachmentName}
+            disabled={locked}
+            onChanged={() => void refresh()}
+          />
+        </div>
+
+        <div className="mt-8 border-t border-border pt-6">
+          <CsvImport
+            campaignId={campaign.id}
+            disabled={locked}
+            onImported={() => {
+              setContactsVersion((version) => version + 1)
+              void refresh()
+            }}
+          />
+        </div>
+
+        <div className="mt-8 border-t border-border pt-6">
+          <ContactTable
+            campaignId={campaign.id}
+            reloadKey={contactsVersion}
+            onChanged={() => void refresh()}
+          />
+        </div>
 
         <div className="mt-8 border-t border-border pt-6">
           <CadenceForm

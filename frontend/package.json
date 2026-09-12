@@ -12,14 +12,17 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "papaparse": "^5.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-quill-new": "^3.8.3",
-    "react-router-dom": "^7.18.3"
+    "react-router-dom": "^7.18.3",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
