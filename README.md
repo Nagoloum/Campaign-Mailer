@@ -12,7 +12,7 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 2 — campaigns and templates.** A user signs in with Google, creates a campaign from a starter template or an empty message, writes it in a rich editor with merge variables, previews it against sample or typed values, and sets the sending pace. Nothing is sent yet: importing contacts is Phase 3 and the send engine is Phase 4.
+**Phase 3 — contacts and attachments.** A user signs in with Google, writes a campaign from a starter template, imports contacts from a CSV with column mapping and a per-line rejection report, attaches a CV, and sets the sending pace. Nothing is sent yet: the send engine is Phase 4.
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 

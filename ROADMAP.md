@@ -3,7 +3,7 @@
 Plan d'exécution de A à Z, du repo vide jusqu'au lancement public.
 Référence : `Cahier des Charges — Campaign Mailer v1.0`.
 
-- **Statut** : Phases 0, 1 et 2 terminées. Reste ouvert en Phase 0 : les deux clés Cloudflare R2 et la demande de vérification Google.
+- **Statut** : Phases 0, 1, 2 et 3 terminées. Reste ouvert en Phase 0 : les deux clés Cloudflare R2 et la demande de vérification Google.
 - **Dernière mise à jour** : 12 septembre 2026
 - **Cadence de révision** : fin de chaque phase
 
