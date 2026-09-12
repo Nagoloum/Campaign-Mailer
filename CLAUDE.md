@@ -18,7 +18,8 @@ The application is proprietary. Copyright holder: Daniel Nagoloum Talla. See `LI
 
 ## Working agreement with the repository owner
 
-- **One task at a time.** Finish one roadmap bullet, commit it, `git push` to `origin main`, then report and stop. Do not chain into the next bullet without being asked.
+- **One phase at a time.** Work through every ticket of the current roadmap phase, then report and stop for review before starting the next phase. This replaced the earlier one-ticket-at-a-time rhythm on 12 September 2026, once Phase 1 was half done.
+- **Still one commit and one push per ticket.** The phase is the review unit; the ticket stays the commit unit, so the history keeps naming what each change was for and a failure stays bisectable.
 - Commit messages follow Conventional Commits, and the body explains why, not only what.
 - Update the progress checklist in `README.md` in the same commit that advances it.
 - Never start a Phase 9 item before Phase 8 is signed off. Scope drift toward post-MVP features is the project's most likely cause of delay.
