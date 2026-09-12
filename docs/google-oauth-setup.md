@@ -38,7 +38,13 @@ Enable nothing else. Every additional API is a question to answer during verific
 
 **Internal** is not an option here: it exists only for Google Workspace organizations, and it would restrict the app to a single domain.
 
-Leave the app in **Testing** while developing. Testing works immediately and is capped at 100 users, which covers the alpha in Phase 8. Add your own address under **Test users**, or nothing will work.
+Leave the app in **Testing** while developing. Testing works immediately and is capped at 100 users, which covers the alpha in Phase 8.
+
+**Add your own address to the test users before trying to sign in.** Owning the Google Cloud project grants nothing: while the app is in Testing, only the addresses on that list get past the consent screen, the developer's included. Without it Google answers `Erreur 403 : access_denied` and says the app has not completed verification, which reads like a problem with the app rather than a missing list entry.
+
+In the current console the list sits under **APIs & Services** → **OAuth consent screen** → **Audience** → **Test users** → **+ Add users**. Older layouts put _Test users_ directly on the consent screen page.
+
+The change takes effect immediately. If the refusal persists, open a private window: the browser caches the denied decision.
 
 ---
 
@@ -104,7 +110,7 @@ Filing this before the app is finished is deliberate. Review runs on Google's sc
 | Symptom                                | Cause                                                                                                                                                                                                                      |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `redirect_uri_mismatch`                | The callback URL differs from the registered one. Compare them character by character, including the scheme and any trailing slash.                                                                                        |
-| `access_denied` while in Testing       | The account is not in the test-user list.                                                                                                                                                                                  |
+| `access_denied` while in Testing       | The account is not in the test-user list. Owning the project does not exempt it. See step 3.                                                                                                                               |
 | No refresh token on the second sign-in | Google returns one only on first authorization. The backend requests `access_type=offline` and `prompt=consent` to force a new one, and never overwrites a stored refresh token with an empty value.                       |
 | `invalid_grant` after some days        | The refresh token was revoked: the user removed access, changed their password, or the app is still in Testing, where refresh tokens expire after seven days. This last one is a reason to finish verification, not a bug. |
 | Sends stop around 100 or 150 a day     | Gmail's own cap. `GMAIL_DAILY_LIMIT` stays below it on purpose.                                                                                                                                                            |
