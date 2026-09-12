@@ -1,8 +1,12 @@
+import cors from 'cors'
 import express, { type Express } from 'express'
+import rateLimit from 'express-rate-limit'
 import session, { type Store } from 'express-session'
+import helmet from 'helmet'
 
 import { env, isProduction } from './config/env.js'
 import { configurePassport } from './config/passport.js'
+import { RATE_LIMIT, buildCorsOptions, rateLimitKey } from './config/security.js'
 import { buildSessionOptions } from './config/session.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
 import { apiRouter } from './routes/index.js'
@@ -27,6 +31,10 @@ export function createApp({ sessionStore }: AppDeps): Express {
   app.set('trust proxy', 1)
   app.disable('x-powered-by')
 
+  // First, so the headers are present on every response including errors.
+  app.use(helmet())
+  app.use(cors(buildCorsOptions(env.frontendUrl)))
+
   app.use(express.json({ limit: '1mb' }))
   app.use(express.urlencoded({ extended: false }))
 
@@ -43,6 +51,21 @@ export function createApp({ sessionStore }: AppDeps): Express {
   const passport = configurePassport()
   app.use(passport.initialize())
   app.use(passport.session())
+
+  // After Passport, so the key can be the account rather than the address.
+  // The cost is that a request carrying a cookie is looked up in Redis before
+  // being counted, which is the price of not punishing everyone behind one
+  // office address.
+  app.use(
+    '/api',
+    rateLimit({
+      ...RATE_LIMIT,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      keyGenerator: rateLimitKey,
+      message: { error: 'Too many requests' },
+    }),
+  )
 
   app.use('/api', apiRouter)
 
