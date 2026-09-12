@@ -62,7 +62,9 @@ export interface GoogleTokenParams {
 }
 
 export interface GoogleProfileHandlerDeps {
-  users: UserRepository
+  // Only the one method it calls. A wider dependency would force every fake
+  // and every future caller to satisfy methods this handler never touches.
+  users: Pick<UserRepository, 'upsertFromGoogle'>
   cipher: TokenCipher
 }
 

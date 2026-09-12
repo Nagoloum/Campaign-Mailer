@@ -29,16 +29,15 @@ function profile(overrides: Partial<GoogleProfile> = {}): GoogleProfile {
 }
 
 /** Captures what the handler asks the repository to store. */
-function fakeRepository(): UserRepository & { calls: UpsertGoogleUser[] } {
+function fakeRepository(): Pick<UserRepository, 'upsertFromGoogle'> & {
+  calls: UpsertGoogleUser[]
+} {
   const calls: UpsertGoogleUser[] = []
   return {
     calls,
     upsertFromGoogle(input) {
       calls.push(input)
       return Promise.resolve({ id: 'user-uuid', email: input.email } as UserRow)
-    },
-    findById() {
-      return Promise.resolve(null)
     },
   }
 }

@@ -1,5 +1,7 @@
 import type { Pool } from 'pg'
 
+import type { UserAuthRepository, UserAuthRow } from './tokenRefresh.js'
+
 /** The subset of a Google profile this application reads. */
 export interface GoogleProfile {
   id: string
@@ -50,7 +52,7 @@ export function toPublicUser(user: UserRow): PublicUser {
   }
 }
 
-export interface UserRepository {
+export interface UserRepository extends UserAuthRepository {
   upsertFromGoogle(input: UpsertGoogleUser): Promise<UserRow>
   /** Used to rebuild the request user from the session. Null when the account is gone. */
   findById(id: string): Promise<UserRow | null>
@@ -97,6 +99,27 @@ export function createUserRepository(pool: Pool): UserRepository {
       )
 
       return rows[0] ?? null
+    },
+
+    async findAuthById(id) {
+      const { rows } = await pool.query<UserAuthRow>(
+        `SELECT id, google_access_token, google_refresh_token, google_token_expires_at
+         FROM users WHERE id = $1`,
+        [id],
+      )
+
+      return rows[0] ?? null
+    },
+
+    async saveAccessToken(id, accessToken, expiresAt) {
+      // Only the access token and its expiry. The refresh token is untouched
+      // here: a renewal never replaces it, and Google does not send a new one.
+      await pool.query(
+        `UPDATE users
+         SET google_access_token = $2, google_token_expires_at = $3
+         WHERE id = $1`,
+        [id, accessToken, expiresAt],
+      )
     },
   }
 }
