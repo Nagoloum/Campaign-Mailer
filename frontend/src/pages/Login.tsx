@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { FullPageSpinner } from '@/components/FullPageSpinner'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
+import { ServerUnreachable } from '@/components/ServerUnreachable'
 
 export function Login() {
   const { status } = useAuth()
@@ -11,6 +12,12 @@ export function Login() {
 
   if (status === 'loading') {
     return <FullPageSpinner label="Vérification de la session" />
+  }
+
+  // Offering a sign-in button that redirects to an API which is not answering
+  // would fail in a way that looks like a rejected account.
+  if (status === 'unreachable') {
+    return <ServerUnreachable />
   }
 
   // Someone already signed in has no business on this page, and landing here

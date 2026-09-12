@@ -21,15 +21,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(current)
       setStatus('authenticated')
     } catch (err) {
-      // A 401 is the ordinary answer for a visitor, not a failure. Anything
-      // else is still treated as signed out, because the application has
-      // nothing useful to show without a session.
-      if (!(err instanceof ApiError) || err.status !== 401) {
-        console.error('Could not read the session', err)
+      setUser(null)
+
+      // A 401 is the ordinary answer for a visitor, not a failure.
+      if (err instanceof ApiError && err.status === 401) {
+        setStatus('anonymous')
+        return
       }
 
-      setUser(null)
-      setStatus('anonymous')
+      // The request never completed, or the API answered with a fault. Either
+      // way, treating it as "signed out" would send the user to a login page
+      // that cannot work and make them doubt their own account.
+      console.error('Could not read the session', err)
+      setStatus('unreachable')
     }
   }, [])
 

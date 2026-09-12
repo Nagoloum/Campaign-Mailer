@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 
 import { FullPageSpinner } from './FullPageSpinner'
+import { ServerUnreachable } from './ServerUnreachable'
 
 /**
  * Keeps the signed-in area behind a session.
@@ -21,6 +22,10 @@ export function RequireAuth() {
 
   if (status === 'loading') {
     return <FullPageSpinner label="Vérification de la session" />
+  }
+
+  if (status === 'unreachable') {
+    return <ServerUnreachable />
   }
 
   if (status === 'anonymous') {

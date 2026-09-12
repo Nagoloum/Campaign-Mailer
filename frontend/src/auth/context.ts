@@ -7,13 +7,18 @@ export interface CurrentUser {
 }
 
 /**
- * Three states, not a boolean plus a flag.
+ * Four states, not a boolean plus a flag.
  *
  * `loading` is a real state, not the absence of a user: rendering the login
  * page while the session is still being checked flashes it in front of someone
  * who is already signed in.
+ *
+ * `unreachable` is separate from `anonymous` because they call for opposite
+ * responses. Anonymous means sign in; unreachable means the server did not
+ * answer, and showing a login page then tells the user to do something that
+ * cannot work, and makes them suspect their own account.
  */
-export type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
+export type AuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'unreachable'
 
 export interface AuthContextValue {
   status: AuthStatus
