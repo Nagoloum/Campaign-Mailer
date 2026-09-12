@@ -12,7 +12,7 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 1 — authentication.** A user can sign in with Google, the backend stores their tokens encrypted, sessions live in Redis, and every route is behind a session with a per-resource ownership guard. There are no campaigns yet: the dashboard is an empty state until Phase 2.
+**Phase 2 — campaigns and templates.** A user signs in with Google, creates a campaign from a starter template or an empty message, writes it in a rich editor with merge variables, previews it against sample or typed values, and sets the sending pace. Nothing is sent yet: importing contacts is Phase 3 and the send engine is Phase 4.
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 
