@@ -76,6 +76,10 @@ export interface CampaignRepository extends CampaignOwnershipRepository {
   create(userId: string, input: CampaignPatch & { name: string }): Promise<CampaignRow>
   findForUser(campaignId: string, userId: string): Promise<CampaignRow | null>
   update(campaignId: string, patch: CampaignPatch): Promise<CampaignRow | null>
+  setAttachment(
+    campaignId: string,
+    attachment: { key: string; name: string } | null,
+  ): Promise<CampaignRow | null>
   remove(campaignId: string): Promise<boolean>
 }
 
@@ -187,6 +191,16 @@ export function createCampaignRepository(pool: Pool): CampaignRepository {
         `SELECT id, email, contact_name, company_name, salutation
          FROM contacts WHERE id = $1 AND campaign_id = $2`,
         [contactId, campaignId],
+      )
+
+      return rows[0] ?? null
+    },
+
+    async setAttachment(campaignId, attachment) {
+      const { rows } = await pool.query<CampaignRow>(
+        `UPDATE campaigns SET attachment_key = $2, attachment_name = $3
+         WHERE id = $1 RETURNING ${COLUMNS}`,
+        [campaignId, attachment?.key ?? null, attachment?.name ?? null],
       )
 
       return rows[0] ?? null

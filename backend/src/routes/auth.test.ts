@@ -16,6 +16,12 @@ process.env.GOOGLE_CLIENT_ID = 'test-client-id'
 process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret'
 process.env.GOOGLE_CALLBACK_URL = 'http://localhost:3000/api/auth/google/callback'
 process.env.FRONTEND_URL = 'http://localhost:5173'
+// Required by the configuration module since attachments landed. Nothing here
+// contacts the bucket; the values only have to exist.
+process.env.S3_ENDPOINT = 'https://example.r2.cloudflarestorage.com'
+process.env.S3_BUCKET = 'test-bucket'
+process.env.S3_ACCESS_KEY_ID = 'test-key'
+process.env.S3_SECRET_ACCESS_KEY = 'test-secret'
 
 const { createApp } = await import('../app.js')
 const session = (await import('express-session')).default

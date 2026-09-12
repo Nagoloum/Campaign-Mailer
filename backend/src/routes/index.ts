@@ -7,6 +7,7 @@ import { createContactRepository } from '../services/contacts.js'
 import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
 import { TEMPLATE_VARIABLES } from '../services/template.js'
 
+import { createAttachmentRouter } from './attachment.js'
 import { authRouter } from './auth.js'
 import { createCampaignRouter } from './campaigns.js'
 import { createContactRouter } from './contacts.js'
@@ -31,6 +32,7 @@ apiRouter.use('/auth', authRouter)
 const campaignRepository = createCampaignRepository(pool)
 
 apiRouter.use('/campaigns', createCampaignRouter(campaignRepository))
+apiRouter.use('/campaigns/:id/attachment', createAttachmentRouter(campaignRepository))
 apiRouter.use(
   '/campaigns/:id/contacts',
   // A batch of rows is larger than the default body limit, and raising it

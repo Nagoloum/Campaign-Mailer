@@ -71,6 +71,15 @@ export const env = {
 
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
 
+  storage: {
+    endpoint: required('S3_ENDPOINT'),
+    // R2 has no regions of its own; its S3 clients want the literal "auto".
+    region: process.env.S3_REGION ?? 'auto',
+    bucket: required('S3_BUCKET'),
+    accessKeyId: required('S3_ACCESS_KEY_ID'),
+    secretAccessKey: required('S3_SECRET_ACCESS_KEY'),
+  },
+
   google: {
     clientId: required('GOOGLE_CLIENT_ID'),
     clientSecret: required('GOOGLE_CLIENT_SECRET'),

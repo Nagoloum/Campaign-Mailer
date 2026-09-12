@@ -82,6 +82,16 @@ const repository: CampaignRepository = {
     removed = true
     return Promise.resolve(true)
   },
+  setAttachment: (_campaignId, attachment) =>
+    Promise.resolve(
+      stored
+        ? row({
+            ...stored,
+            attachment_key: attachment?.key ?? null,
+            attachment_name: attachment?.name ?? null,
+          })
+        : null,
+    ),
   findContact: (campaignId, contactId) =>
     Promise.resolve(
       campaignId === CAMPAIGN && contactId === CONTACT
