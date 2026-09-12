@@ -61,7 +61,17 @@ export type CampaignPatch = {
   [K in keyof CampaignWritableFields]?: CampaignWritableFields[K] | undefined
 }
 
+/** The merge fields of one contact, for a preview. Contacts land fully in Phase 3. */
+export interface PreviewContactRow {
+  id: string
+  email: string
+  contact_name: string | null
+  company_name: string | null
+  salutation: string | null
+}
+
 export interface CampaignRepository extends CampaignOwnershipRepository {
+  findContact(campaignId: string, contactId: string): Promise<PreviewContactRow | null>
   listForUser(userId: string): Promise<CampaignRow[]>
   create(userId: string, input: CampaignPatch & { name: string }): Promise<CampaignRow>
   findForUser(campaignId: string, userId: string): Promise<CampaignRow | null>
@@ -165,6 +175,18 @@ export function createCampaignRepository(pool: Pool): CampaignRepository {
       const { rows } = await pool.query<CampaignRow>(
         `UPDATE campaigns SET ${assignments.join(', ')} WHERE id = $1 RETURNING ${COLUMNS}`,
         [campaignId, ...values],
+      )
+
+      return rows[0] ?? null
+    },
+
+    async findContact(campaignId, contactId) {
+      // Scoped by campaign as well as by id, so a contact id from another
+      // campaign cannot be previewed through this one.
+      const { rows } = await pool.query<PreviewContactRow>(
+        `SELECT id, email, contact_name, company_name, salutation
+         FROM contacts WHERE id = $1 AND campaign_id = $2`,
+        [contactId, campaignId],
       )
 
       return rows[0] ?? null

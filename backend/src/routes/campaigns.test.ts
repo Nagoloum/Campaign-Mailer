@@ -15,6 +15,7 @@ import { createCampaignRouter } from './campaigns.js'
 
 const ALICE = 'aaaaaaaa-1111-4111-8111-111111111111'
 const CAMPAIGN = 'cccccccc-3333-4333-8333-333333333333'
+const CONTACT = 'dddddddd-4444-4444-8444-444444444444'
 
 /** `exactOptionalPropertyTypes` is on, so an absent key has to allow undefined. */
 type RowOverrides = { [K in keyof CampaignRow]?: CampaignRow[K] | undefined }
@@ -81,6 +82,18 @@ const repository: CampaignRepository = {
     removed = true
     return Promise.resolve(true)
   },
+  findContact: (campaignId, contactId) =>
+    Promise.resolve(
+      campaignId === CAMPAIGN && contactId === CONTACT
+        ? {
+            id: CONTACT,
+            email: 'marie@exemple.fr',
+            contact_name: 'Marie',
+            company_name: 'Acme',
+            salutation: 'Madame',
+          }
+        : null,
+    ),
 }
 
 let baseUrl: string
@@ -265,6 +278,49 @@ describe('PATCH /campaigns/:id', () => {
 
   it('refuses an unknown field', async () => {
     assert.equal((await patchWith({ sent_count: 999 })).status, 400)
+  })
+})
+
+describe('POST /campaigns/:id/preview', () => {
+  const preview = (body: unknown) =>
+    send(`/campaigns/${CAMPAIGN}/preview`, { method: 'POST', body: JSON.stringify(body) })
+
+  beforeEach(() => {
+    stored = row({
+      subject: 'Candidature chez {{company_name}}',
+      body_html: '<p>Bonjour {{salutation}} {{contact_name}}</p>',
+      body_text: 'Bonjour {{salutation}} {{contact_name}}',
+    })
+  })
+
+  it('renders with a stored contact', async () => {
+    const res = await preview({ contact_id: CONTACT })
+
+    assert.equal(res.status, 200)
+    const body = (await res.json()) as { preview: { subject: string; bodyHtml: string } }
+    assert.equal(body.preview.subject, 'Candidature chez Acme')
+    assert.equal(body.preview.bodyHtml, '<p>Bonjour Madame Marie</p>')
+  })
+
+  it('renders with sample values when nothing is given', async () => {
+    const res = await preview({})
+
+    const body = (await res.json()) as { preview: { subject: string } }
+    assert.match(body.preview.subject, /Société Exemple/)
+  })
+
+  it('answers 404 for a contact that is not in this campaign', async () => {
+    // Scoped by campaign as well as by id, so an id borrowed from another
+    // campaign previews nothing.
+    const res = await preview({ contact_id: 'eeeeeeee-5555-4555-8555-555555555555' })
+
+    assert.equal(res.status, 404)
+  })
+
+  it('stores nothing', async () => {
+    await preview({ contact: { contact_name: 'Éphémère' } })
+
+    assert.equal(lastPatch, null)
   })
 })
 

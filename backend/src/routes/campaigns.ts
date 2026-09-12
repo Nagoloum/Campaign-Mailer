@@ -6,12 +6,15 @@ import {
   CADENCE_FIELDS,
   CONTENT_FIELDS,
   createCampaignSchema,
+  previewSchema,
   updateCampaignSchema,
   type CreateCampaignInput,
+  type PreviewInput,
   type UpdateCampaignInput,
 } from '../schemas/campaign.js'
 import { canDelete, canEditCadence, canEditContent } from '../services/campaignState.js'
 import type { CampaignRepository, CampaignRow } from '../services/campaigns.js'
+import { renderPreview, type PreviewSource } from '../services/preview.js'
 
 /**
  * Section 6 of the specification, for campaigns.
@@ -96,6 +99,40 @@ export function createCampaignRouter(campaigns: CampaignRepository): Router {
       const updated = await campaigns.update(current.id, patch)
 
       res.json({ campaign: toPublicCampaign(updated ?? current) })
+    })().catch(next)
+  })
+
+  /**
+   * Renders the campaign as a recipient would receive it.
+   *
+   * POST rather than GET because the payload may carry made-up values, and a
+   * body is the honest place for them. Nothing is stored.
+   */
+  router.post('/:id/preview', validateBody(previewSchema), (req, res, next) => {
+    void (async () => {
+      const input = req.body as PreviewInput
+      const id = paramId(req)
+      const campaign = id ? await campaigns.findForUser(id, userId(req)) : null
+
+      if (!campaign) {
+        res.status(404).json({ error: 'Campaign not found' })
+        return
+      }
+
+      let source: PreviewSource | undefined = input.contact
+
+      if (input.contact_id) {
+        const contact = await campaigns.findContact(campaign.id, input.contact_id)
+
+        if (!contact) {
+          res.status(404).json({ error: 'Contact not found in this campaign' })
+          return
+        }
+
+        source = contact
+      }
+
+      res.json({ preview: renderPreview(campaign, source) })
     })().catch(next)
   })
 
