@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { PreviewPanel } from '@/components/PreviewPanel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { ApiError } from '@/services/api'
@@ -169,6 +170,19 @@ export function CampaignEditor() {
             {error}
           </p>
         )}
+
+        <div className="mt-8 border-t border-border pt-6">
+          <PreviewPanel
+            campaignId={campaign.id}
+            beforePreview={async () => {
+              // Previewing stale text is worse than not previewing: the user
+              // checks a sentence they have already changed.
+              if (dirty && !locked) {
+                await save()
+              }
+            }}
+          />
+        </div>
 
         {!locked && (
           <div className="mt-6 flex items-center gap-3">
