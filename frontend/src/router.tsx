@@ -2,6 +2,8 @@ import { createBrowserRouter } from 'react-router-dom'
 
 import { AppLayout } from '@/components/AppLayout'
 import { RequireAuth } from '@/components/RequireAuth'
+import { CampaignEditor } from '@/pages/CampaignEditor'
+import { CampaignNew } from '@/pages/CampaignNew'
 import { Dashboard } from '@/pages/Dashboard'
 import { Login } from '@/pages/Login'
 import { NotFound } from '@/pages/NotFound'
@@ -21,7 +23,11 @@ export const router = createBrowserRouter([
       {
         path: '/',
         element: <AppLayout />,
-        children: [{ index: true, element: <Dashboard /> }],
+        children: [
+          { index: true, element: <Dashboard /> },
+          { path: 'campaigns/new', element: <CampaignNew /> },
+          { path: 'campaigns/:id', element: <CampaignEditor /> },
+        ],
       },
     ],
   },
