@@ -12,7 +12,7 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 0 — foundations.** Both workspaces are scaffolded and run, and the quality tooling is in place. The application itself has no features yet: the API answers `/api/health` and nothing more, and the three routed pages are placeholders that name the phase which builds them.
+**Phase 1 — authentication.** A user can sign in with Google, the backend stores their tokens encrypted, sessions live in Redis, and every route is behind a session with a per-resource ownership guard. There are no campaigns yet: the dashboard is an empty state until Phase 2.
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 
@@ -25,7 +25,7 @@ Current progress against the roadmap:
 - [x] Backend workspace (Express + TypeScript)
 - [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
 - [x] Environment templates for both workspaces
-- [ ] Hosted services wired up (Neon, Upstash, Cloudflare R2)
+- [ ] Hosted services wired up (Neon and Upstash done; the two Cloudflare R2 keys are still missing)
 - [x] Initial migration (users, campaigns, contacts, logs)
 - [x] CI pipeline (GitHub Actions) — written, but not running: Actions is disabled on the account
 - [x] Tracker populated from the roadmap (128 issues, 10 milestones)
