@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 
 import { useAuth } from '@/auth/useAuth'
 
@@ -17,7 +17,10 @@ export function AppLayout() {
     <div className="min-h-dvh">
       <header className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-          <span className="font-semibold tracking-tight">Campaign Mailer</span>
+          <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <img src="/logo.png" alt="" aria-hidden="true" className="size-6" />
+            Campaign Mailer
+          </Link>
 
           <nav aria-label="Principal">
             <ul className="flex gap-4 text-sm">

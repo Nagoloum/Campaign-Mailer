@@ -54,16 +54,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
+function withBody(method: string, payload: unknown): RequestInit {
+  return payload === undefined
+    ? { method }
+    : {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, payload?: unknown) =>
-    request<T>(path, {
-      method: 'POST',
-      ...(payload === undefined
-        ? {}
-        : {
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload),
-          }),
-    }),
+    request<T>(path, withBody('POST', payload)),
+  patch: <T>(path: string, payload?: unknown) =>
+    request<T>(path, withBody('PATCH', payload)),
+  delete: (path: string) => request<void>(path, { method: 'DELETE' }),
 }
