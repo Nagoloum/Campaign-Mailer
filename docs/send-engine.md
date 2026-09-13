@@ -114,7 +114,7 @@ Two ceilings, checked before planning and again before each send.
 already sent during its local day.
 
 **The account's**, `GMAIL_DAILY_LIMIT`, counted across every campaign the user
-owns. It sits below Google's real ceiling — roughly 150 a day on a personal
+owns over a rolling 24 hours, the way Gmail counts it. It sits below Google's real ceiling — roughly 150 a day on a personal
 account — so the messages a user sends by hand from the same mailbox do not
 push them over it.
 
