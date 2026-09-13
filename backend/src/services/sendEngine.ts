@@ -10,8 +10,8 @@ import { ReauthorizationRequiredError } from './tokenRefresh.js'
  * order of operations is the whole of the guarantee.
  */
 
-/** How long a claim survives a worker that died holding it. */
-const CLAIM_TIMEOUT = '10 minutes'
+/** How long a claim survives a worker that died holding it. A literal, interpolated into SQL. */
+export const CLAIM_TIMEOUT = '10 minutes'
 
 export type SendOutcome =
   | { kind: 'sent'; messageId: string }
@@ -341,7 +341,7 @@ export async function recordFailure(
  * when it becomes true instead of up to a cron interval later.
  */
 export async function completeIfDone(
-  client: PoolClient,
+  client: Pool | PoolClient,
   campaignId: string,
 ): Promise<boolean> {
   const { rowCount } = await client.query(
@@ -356,6 +356,29 @@ export async function completeIfDone(
   )
 
   return (rowCount ?? 0) > 0
+}
+
+/**
+ * Marks a contact failed when only its id is known: a job out of attempts.
+ *
+ * Only a contact still pending. One that was sent, or already failed through
+ * another path, keeps the outcome it has.
+ */
+export async function recordFailureById(
+  pool: Pool,
+  contactId: string,
+  reason: string,
+): Promise<void> {
+  const { rows } = await pool.query<SendableContact>(
+    `SELECT id, campaign_id, email, contact_name, company_name, salutation, attempts
+     FROM contacts WHERE id = $1 AND status = 'pending'`,
+    [contactId],
+  )
+  const contact = rows[0]
+
+  if (contact) {
+    await recordFailure(pool, contact, reason)
+  }
 }
 
 /** Pauses a campaign and says why, without touching its contacts. */

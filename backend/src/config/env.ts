@@ -44,6 +44,31 @@ function optionalPort(name: string, fallback: number): number {
   return parsed
 }
 
+function optionalInteger(
+  name: string,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  // The name is a literal from this module.
+  // eslint-disable-next-line security/detect-object-injection
+  const raw = process.env[name]
+
+  if (raw === undefined || raw === '') {
+    return fallback
+  }
+
+  const parsed = Number(raw)
+
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(
+      `${name} must be an integer between ${String(min)} and ${String(max)}, got: ${raw}`,
+    )
+  }
+
+  return parsed
+}
+
 function nodeEnv(): NodeEnv {
   const raw = process.env.NODE_ENV ?? 'development'
 
@@ -70,6 +95,11 @@ export const env = {
   sessionSecret: required('SESSION_SECRET'),
 
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+
+  // Messages one account may send over a rolling 24 hours, across every
+  // campaign. Below Google's own ceiling (about 150 personal, 1500 Workspace),
+  // so what the user sends by hand from the same mailbox still fits.
+  gmailDailyLimit: optionalInteger('GMAIL_DAILY_LIMIT', 120, 1, 1500),
 
   storage: {
     endpoint: required('S3_ENDPOINT'),

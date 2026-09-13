@@ -119,8 +119,9 @@ Run from the repository root. Each one delegates to every workspace that defines
 
 | Command                  | Purpose                                           |
 | ------------------------ | ------------------------------------------------- |
-| `npm run dev`            | Start backend and frontend together in watch mode |
+| `npm run dev`            | Start API, worker and web app in watch mode       |
 | `npm run dev:backend`    | Start the API alone on port 3000                  |
+| `npm run dev:worker`     | Start the send worker alone                       |
 | `npm run dev:frontend`   | Start the web app alone on port 5173              |
 | `npm run build`          | Produce production builds                         |
 | `npm run lint`           | oxlint on the frontend, ESLint on the backend     |

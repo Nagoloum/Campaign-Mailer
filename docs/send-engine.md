@@ -33,7 +33,8 @@ any one of them can be defeated on its own.
 
 ### 1. The job id is the contact id
 
-A send job is enqueued as `send:<contactId>`. BullMQ refuses a second job with
+A send job is enqueued as `send-<contactId>` (BullMQ refuses a colon in a
+custom id). BullMQ refuses a second job with
 an id already present, so re-planning the same day — after a restart, or
 because the schedule fired twice — cannot enqueue the same contact twice.
 
@@ -50,10 +51,13 @@ SET claimed_at = now()
 WHERE id = $1
   AND status = 'pending'
   AND (claimed_at IS NULL OR claimed_at < now() - interval '10 minutes')
+  AND EXISTS (SELECT 1 FROM campaigns
+              WHERE id = contacts.campaign_id AND status = 'running')
 RETURNING id
 ```
 
-No row returned means another worker holds it, or it is no longer pending. The
+No row returned means another worker holds it, it is no longer pending, or its
+campaign was paused after the job was queued. The
 job exits successfully: there is nothing to do, and failing would only schedule
 a retry of a send that is already happening.
 
@@ -118,23 +122,27 @@ owns over a rolling 24 hours, the way Gmail counts it. It sits below Google's re
 account — so the messages a user sends by hand from the same mailbox do not
 push them over it.
 
-Reaching the account ceiling pauses the campaign and records why. It does not
-fail the contacts: they stay `pending` and go out tomorrow.
+Reaching the account ceiling pauses the sending, not the campaign: its status
+stays `running`, the planner queues nothing, and a job that reaches the
+ceiling at send time leaves its contact untouched. Flipping the status to
+`paused` would make the user resume by hand every morning. Nor does it fail
+the contacts: they stay `pending` and go out once the 24-hour window frees.
 
 ---
 
 ## Failures, and which ones are worth retrying
 
-Three kinds, and conflating them is how a queue spends its attempts against a
-wall.
+Four kinds, and conflating them is how a queue spends its attempts against a
+wall — or sends a message twice.
 
-| Kind          | Examples                                         | What happens                                                                                           |
-| ------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Transient     | 429, 500, 503, a socket error                    | Retried, three attempts, exponential backoff from one minute. Marked `failed` only after the last one. |
-| Permanent     | 400 on a malformed recipient, a rejected address | Marked `failed` immediately, with the reason. No retry can help.                                       |
-| Authorization | `invalid_grant`, a revoked token                 | The **campaign is paused** and the user is told to reconnect. Contacts stay `pending`.                 |
+| Kind          | Examples                                          | What happens                                                                                           |
+| ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Transient     | 429, 500, 503, a 403 whose reason is a rate limit | Retried, three attempts, exponential backoff from one minute. Marked `failed` only after the last one. |
+| No answer     | A dropped socket, a timeout                       | **Ambiguous**: the request may have reached Gmail. Marked `failed`, outcome unknown, never retried.    |
+| Permanent     | 400 on a malformed recipient, a rejected address  | Marked `failed` immediately, with the reason. No retry can help.                                       |
+| Authorization | `invalid_grant`, a revoked token                  | The **campaign is paused** and the user is told to reconnect. Contacts stay `pending`.                 |
 
-The third is the one worth care. It is not a property of the contact, so
+The last is the one worth care. It is not a property of the contact, so
 failing contacts one by one would burn through a list for a reason that has
 nothing to do with any of them.
 
