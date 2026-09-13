@@ -12,7 +12,7 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 3 — contacts and attachments.** A user signs in with Google, writes a campaign from a starter template, imports contacts from a CSV with column mapping and a per-line rejection report, attaches a CV, and sets the sending pace. Nothing is sent yet: the send engine is Phase 4.
+**Phase 4 — the send engine, awaiting review.** A user signs in with Google, writes a campaign, imports contacts, attaches a CV, sets the pace, and launches it. A separate worker process plans each campaign in its own time zone and sends one message at a time from the user's Gmail account, under a daily ceiling, without ever sending a contact the same email twice. The real five-email test (#67) is still to run.
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 
