@@ -6,6 +6,7 @@ import { CadenceForm } from '@/components/CadenceForm'
 import { ContactTable } from '@/components/ContactTable'
 import { CsvImport } from '@/components/CsvImport'
 import { PreviewPanel } from '@/components/PreviewPanel'
+import { SendControls } from '@/components/SendControls'
 import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { ApiError } from '@/services/api'
@@ -72,6 +73,53 @@ export function CampaignEditor() {
         setVariables([])
       })
   }, [])
+
+  const live =
+    load.state === 'ready' &&
+    (load.campaign.status === 'scheduled' || load.campaign.status === 'running')
+
+  /**
+   * Follows a sending campaign without a reload.
+   *
+   * Polling every ten seconds rather than a push channel: the numbers move at
+   * the pace of one message every few seconds at best, and a poll needs nothing
+   * new on the server. Skipped while the tab is hidden, and stopped as soon as
+   * the campaign is no longer sending.
+   */
+  useEffect(() => {
+    if (!live || !id) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
+
+      campaignsApi
+        .get(id)
+        .then((campaign) => {
+          setLoad((current) => {
+            if (
+              current.state === 'ready' &&
+              (current.campaign.sentCount !== campaign.sentCount ||
+                current.campaign.errorCount !== campaign.errorCount)
+            ) {
+              // The table shows each contact's status; it moves with the counters.
+              setContactsVersion((version) => version + 1)
+            }
+            return { state: 'ready', campaign }
+          })
+        })
+        .catch(() => {
+          // A missed poll is not worth a toast; the next one will try again.
+        })
+    }, 10_000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [live, id])
 
   /**
    * Warns before leaving with unsaved work. A campaign body is ten minutes of
@@ -161,6 +209,16 @@ export function CampaignEditor() {
       )}
 
       <div className="mt-6 max-w-3xl">
+        <div className="mb-8">
+          <SendControls
+            campaign={campaign}
+            dirty={dirty}
+            onChanged={(updated) => {
+              setLoad({ state: 'ready', campaign: updated })
+            }}
+          />
+        </div>
+
         <TemplateEditor
           subject={draft.subject}
           bodyHtml={draft.bodyHtml}

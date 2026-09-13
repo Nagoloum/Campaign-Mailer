@@ -73,6 +73,56 @@ export const campaignsApi = {
       .then((r) => r.preview),
 
   templates: () => api.get<TemplateCatalogue>('/templates'),
+
+  start: (id: string) =>
+    api.post<{ campaign: Campaign }>(`/campaigns/${id}/start`).then((r) => r.campaign),
+
+  pause: (id: string) =>
+    api.post<{ campaign: Campaign }>(`/campaigns/${id}/pause`).then((r) => r.campaign),
+
+  resume: (id: string) =>
+    api.post<{ campaign: Campaign }>(`/campaigns/${id}/resume`).then((r) => r.campaign),
+}
+
+export interface SendSchedule {
+  remaining: number
+  days: number
+  /** The last day messages go out, counted from today. */
+  lastDay: Date
+  /** Roughly how long one day's sending takes, pauses included. */
+  minutesPerDay: number
+}
+
+/**
+ * What launching commits the user to, in days and minutes.
+ *
+ * An estimate, and said to be one: it counts from today in the browser's
+ * calendar, and ignores the account ceiling another campaign may be spending.
+ * A campaign started after its start hour begins at once, so today is always
+ * the first day.
+ */
+export function estimateSchedule(
+  campaign: Pick<
+    Campaign,
+    'totalContacts' | 'sentCount' | 'errorCount' | 'mailsPerDay' | 'pauseMs'
+  >,
+  today: Date = new Date(),
+): SendSchedule | null {
+  const remaining = campaign.totalContacts - campaign.sentCount - campaign.errorCount
+
+  if (remaining <= 0 || campaign.mailsPerDay <= 0) {
+    return null
+  }
+
+  const days = Math.ceil(remaining / campaign.mailsPerDay)
+  const lastDay = new Date(today)
+  lastDay.setDate(lastDay.getDate() + days - 1)
+
+  const perDay = Math.min(remaining, campaign.mailsPerDay)
+  // The average jitter is ten percent on top of the pause.
+  const minutesPerDay = Math.ceil((perDay * campaign.pauseMs * 1.1) / 60_000)
+
+  return { remaining, days, lastDay, minutesPerDay }
 }
 
 const STATUS_LABELS: Record<CampaignStatus, string> = {
