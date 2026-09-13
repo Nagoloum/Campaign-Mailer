@@ -5,6 +5,7 @@ import pg from 'pg'
 
 import {
   PermanentSendError,
+  TransientSendError,
   countSentToday,
   sendToContact,
   type SendEngineDeps,
@@ -29,7 +30,7 @@ let campaignId: string
 const stamp = Date.now()
 
 /** Records what the gateway was asked to send, and can be told to fail. */
-function gatewayThat(behaviour: 'succeeds' | 'permanent' | 'transient') {
+function gatewayThat(behaviour: 'succeeds' | 'permanent' | 'transient' | 'drops') {
   const calls: string[] = []
 
   const gateway: SendGateway = {
@@ -40,7 +41,11 @@ function gatewayThat(behaviour: 'succeeds' | 'permanent' | 'transient') {
         return Promise.reject(new PermanentSendError('Recipient address rejected'))
       }
       if (behaviour === 'transient') {
-        return Promise.reject(new Error('Gmail answered 503'))
+        return Promise.reject(new TransientSendError('Gmail answered 503'))
+      }
+      if (behaviour === 'drops') {
+        // What fetch throws when the socket closes: no status, no answer.
+        return Promise.reject(new TypeError('fetch failed'))
       }
 
       return Promise.resolve(`msg-${String(calls.length)}`)
@@ -250,6 +255,59 @@ describe('the send engine', { skip: enabled ? false : 'DATABASE_URL is not set' 
     assert.equal(row.status, 'pending', 'a transient failure must not fail the contact')
     assert.equal(row.claimed_at, null, 'the claim must be released for the retry')
     assert.equal(row.attempts, 0, 'nothing reached Gmail, so nothing is counted')
+  })
+
+  it('treats a dropped connection as unknown, and never sends again', async () => {
+    // The request may have reached Gmail before the socket closed. Retrying
+    // would be a guess, and a wrong guess is a duplicate.
+    const contactId = await addContact('h2@exemple.fr')
+    const { gateway, calls } = gatewayThat('drops')
+
+    const outcome = await sendToContact(deps(gateway), { contactId, userId })
+
+    assert.deepEqual(outcome, { kind: 'ambiguous' })
+    assert.equal(calls.length, 1)
+
+    const row = await contactRow(contactId)
+    assert.equal(row.status, 'failed')
+    assert.equal(row.attempts, 1, 'the attempt stays counted')
+
+    const retry = await sendToContact(deps(gatewayThat('succeeds').gateway), {
+      contactId,
+      userId,
+    })
+    assert.equal(retry.kind, 'skipped')
+  })
+
+  it('sends nothing for a campaign that was paused after planning', async () => {
+    const contactId = await addContact('h3@exemple.fr')
+    await pool.query("UPDATE campaigns SET status = 'paused' WHERE id = $1", [campaignId])
+    const { gateway, calls } = gatewayThat('succeeds')
+
+    const outcome = await sendToContact(deps(gateway), { contactId, userId })
+
+    assert.equal(outcome.kind, 'skipped')
+    assert.equal(calls.length, 0, 'a delayed job sent for a paused campaign')
+    const row = await contactRow(contactId)
+    assert.equal(row.status, 'pending')
+    assert.equal(row.claimed_at, null)
+  })
+
+  it('releases the claim when the message cannot be built', async () => {
+    const contactId = await addContact('h4@exemple.fr')
+    const { gateway, calls } = gatewayThat('succeeds')
+
+    await assert.rejects(() =>
+      sendToContact(
+        deps(gateway, { compose: () => Promise.reject(new Error('R2 unreachable')) }),
+        { contactId, userId },
+      ),
+    )
+
+    assert.equal(calls.length, 0)
+    const row = await contactRow(contactId)
+    assert.equal(row.claimed_at, null, 'the retry would be locked out')
+    assert.equal(row.attempts, 0)
   })
 
   it('pauses rather than sending when the account ceiling is reached', async () => {

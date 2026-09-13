@@ -1,4 +1,4 @@
-import { PermanentSendError, type SendGateway } from './sendEngine.js'
+import { PermanentSendError, TransientSendError, type SendGateway } from './sendEngine.js'
 
 /**
  * The Gmail API call itself.
@@ -59,14 +59,14 @@ export function createGmailGateway(): SendGateway {
       const message = body.error?.message ?? `Gmail answered ${String(response.status)}`
 
       if (response.status === 429 || response.status >= 500) {
-        throw new Error(message)
+        throw new TransientSendError(message)
       }
 
       if (response.status === 403 && reason && TRANSIENT_REASONS.has(reason)) {
         // A quota or rate refusal wears the same status as a real one. Marking
         // the contact failed here would lose it for a reason that clears by
         // itself in a minute.
-        throw new Error(message)
+        throw new TransientSendError(message)
       }
 
       // 400 and the rest of 4xx: the message or the address is wrong, and it

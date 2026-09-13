@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
 import { createGmailGateway } from './gmail.js'
-import { PermanentSendError } from './sendEngine.js'
+import { PermanentSendError, TransientSendError } from './sendEngine.js'
 
 const realFetch = globalThis.fetch
 
@@ -87,9 +87,22 @@ describe('a refusal about the moment', () => {
 async function assertRetryable(status: number, body: unknown) {
   answer(status, body)
 
-  await assert.rejects(send, (err: unknown) => {
-    assert.ok(err instanceof Error)
-    assert.ok(!(err instanceof PermanentSendError), 'should not be permanent')
-    return true
-  })
+  // TransientSendError specifically: the engine resends only on that type, and
+  // treats any other error as a message that may already have left.
+  await assert.rejects(send, TransientSendError)
 }
+
+describe('no answer at all', () => {
+  it('is neither permanent nor transient when the connection drops', async () => {
+    globalThis.fetch = () => Promise.reject(new TypeError('fetch failed'))
+
+    await assert.rejects(send, (err: unknown) => {
+      assert.ok(
+        !(err instanceof TransientSendError),
+        'a dropped socket must not be retried',
+      )
+      assert.ok(!(err instanceof PermanentSendError))
+      return true
+    })
+  })
+})

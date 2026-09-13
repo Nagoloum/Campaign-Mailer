@@ -28,6 +28,23 @@ export class PermanentSendError extends Error {
   }
 }
 
+/**
+ * Gmail answered, and the answer was "not now": a 429, a 5xx, a rate refusal.
+ *
+ * Only an explicit answer earns a retry. A socket that drops after the request
+ * went out is not this: the message may have left, so it is ambiguous, and
+ * ambiguous is never resent.
+ */
+export class TransientSendError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TransientSendError'
+  }
+}
+
+const UNKNOWN_OUTCOME =
+  'Envoi déjà tenté, issue inconnue. Relancez ce contact manuellement si nécessaire.'
+
 export interface SendableContact {
   id: string
   campaign_id: string
@@ -70,6 +87,13 @@ export async function claimContact(
      WHERE id = $1
        AND status = 'pending'
        AND (claimed_at IS NULL OR claimed_at < now() - interval '${CLAIM_TIMEOUT}')
+       -- A paused campaign keeps its delayed jobs in the queue. They must find
+       -- nothing to do, in the same statement that would otherwise take the
+       -- contact, so a pause cannot race a send that is about to start.
+       AND EXISTS (
+         SELECT 1 FROM campaigns
+         WHERE campaigns.id = contacts.campaign_id AND campaigns.status = 'running'
+       )
      RETURNING id, campaign_id, email, contact_name, company_name, salutation, attempts`,
     [contactId],
   )
@@ -137,11 +161,7 @@ export async function sendToContact(
   }
 
   if (isAmbiguous(contact)) {
-    await recordFailure(
-      deps.pool,
-      contact,
-      'Envoi déjà tenté, issue inconnue. Relancez ce contact manuellement si nécessaire.',
-    )
+    await recordFailure(deps.pool, contact, UNKNOWN_OUTCOME)
     return { kind: 'ambiguous' }
   }
 
@@ -171,7 +191,16 @@ export async function sendToContact(
     throw err
   }
 
-  const { raw } = await deps.compose(contact)
+  let raw: string
+
+  try {
+    ;({ raw } = await deps.compose(contact))
+  } catch (err) {
+    // Nothing reached Gmail yet: the attachment store was down, or the
+    // template failed. Released so the retry is not locked out for ten minutes.
+    await releaseClaim(deps.pool, contact.id)
+    throw err
+  }
 
   // Counted here and nowhere else. Everything after this point may have
   // reached Gmail.
@@ -189,13 +218,22 @@ export async function sendToContact(
       return { kind: 'failed', reason: err.message }
     }
 
-    // Transient. The claim is released so a retry can take it, and the attempt
-    // counter is rolled back because the message never left.
-    await deps.pool.query(
-      'UPDATE contacts SET claimed_at = NULL, attempts = attempts - 1 WHERE id = $1',
-      [contact.id],
-    )
-    throw err
+    if (err instanceof TransientSendError) {
+      // Gmail said "not now" in so many words. The claim is released so a
+      // retry can take it, and the attempt is rolled back: the message never
+      // left.
+      await deps.pool.query(
+        'UPDATE contacts SET claimed_at = NULL, attempts = attempts - 1 WHERE id = $1',
+        [contact.id],
+      )
+      throw err
+    }
+
+    // No answer we can read: a dropped socket, a timeout. The request may have
+    // reached Gmail, so this is the ambiguous case, recorded now rather than
+    // discovered ten minutes later.
+    await recordFailure(deps.pool, contact, UNKNOWN_OUTCOME)
+    return { kind: 'ambiguous' }
   }
 
   await recordSent(deps.pool, contact, messageId)
