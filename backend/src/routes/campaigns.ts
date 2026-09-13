@@ -12,9 +12,23 @@ import {
   type PreviewInput,
   type UpdateCampaignInput,
 } from '../schemas/campaign.js'
-import { canDelete, canEditCadence, canEditContent } from '../services/campaignState.js'
+import {
+  canDelete,
+  canEditCadence,
+  canEditContent,
+  canTransition,
+  type CampaignStatus,
+} from '../services/campaignState.js'
 import type { CampaignRepository, CampaignRow } from '../services/campaigns.js'
 import { renderPreview, type PreviewSource } from '../services/preview.js'
+
+export interface CampaignRouterOptions {
+  /**
+   * Asks the worker to plan a campaign now rather than at its next scheduled
+   * pass. Optional so the router can be built without a queue.
+   */
+  requestDispatch?: ((campaignId: string) => Promise<void>) | undefined
+}
 
 /**
  * Section 6 of the specification, for campaigns.
@@ -24,7 +38,10 @@ import { renderPreview, type PreviewSource } from '../services/preview.js'
  * someone else is simply not found, which is the same answer as one that never
  * existed.
  */
-export function createCampaignRouter(campaigns: CampaignRepository): Router {
+export function createCampaignRouter(
+  campaigns: CampaignRepository,
+  options: CampaignRouterOptions = {},
+): Router {
   const router = Router()
 
   router.use(requireAuth)
@@ -134,6 +151,122 @@ export function createCampaignRouter(campaigns: CampaignRepository): Router {
 
       res.json({ preview: renderPreview(campaign, source) })
     })().catch(next)
+  })
+
+  /**
+   * Hands the campaign to the worker straight away.
+   *
+   * A failure here is logged, not returned: the status change is already
+   * stored, and the scheduled pass plans every scheduled or running campaign
+   * within fifteen minutes. A queue outage delays a start; it does not lose it,
+   * and answering 500 would invite a second click on something that worked.
+   */
+  const dispatchSoon = async (campaignId: string): Promise<void> => {
+    if (!options.requestDispatch) {
+      return
+    }
+
+    try {
+      await options.requestDispatch(campaignId)
+    } catch (err) {
+      console.error('Could not request an immediate dispatch', {
+        campaignId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  /**
+   * One route per move in the state machine that a user may make.
+   *
+   * The graph is checked for a readable 409, then the move is made with a
+   * conditional update, so a double click or a race with the planner cannot
+   * apply it twice.
+   */
+  const statusRoute = (
+    path: string,
+    move: {
+      from: readonly CampaignStatus[]
+      to: CampaignStatus
+      dispatch: boolean
+      precondition?: (campaign: CampaignRow) => Promise<string | null>
+    },
+  ) => {
+    router.post(path, (req, res, next) => {
+      void (async () => {
+        const id = paramId(req)
+        const current = id ? await campaigns.findForUser(id, userId(req)) : null
+
+        if (!current) {
+          res.status(404).json({ error: 'Campaign not found' })
+          return
+        }
+
+        if (
+          !move.from.includes(current.status) ||
+          !canTransition(current.status, move.to)
+        ) {
+          res.status(409).json({
+            error: `A ${current.status} campaign cannot move to ${move.to}`,
+          })
+          return
+        }
+
+        const blocker = move.precondition ? await move.precondition(current) : null
+
+        if (blocker) {
+          // 422: the request is understood and allowed, the campaign is not
+          // ready for it.
+          res.status(422).json({ error: blocker })
+          return
+        }
+
+        const updated = await campaigns.transition(current.id, move.from, move.to)
+
+        if (!updated) {
+          res.status(409).json({ error: 'The campaign changed state in the meantime' })
+          return
+        }
+
+        if (move.dispatch) {
+          await dispatchSoon(updated.id)
+        }
+
+        res.json({ campaign: toPublicCampaign(updated) })
+      })().catch(next)
+    })
+  }
+
+  statusRoute('/:id/start', {
+    from: ['draft'],
+    to: 'scheduled',
+    dispatch: true,
+    precondition: async (campaign) => {
+      if (!campaign.subject?.trim()) {
+        return 'The campaign has no subject'
+      }
+      if (!campaign.body_html?.trim()) {
+        return 'The campaign has no body'
+      }
+      if ((await campaigns.countPendingContacts(campaign.id)) === 0) {
+        return 'The campaign has no contact left to send to'
+      }
+      return null
+    },
+  })
+
+  statusRoute('/:id/pause', {
+    from: ['scheduled', 'running'],
+    to: 'paused',
+    // Nothing to plan. Jobs already queued find the campaign paused when they
+    // try to claim their contact, and do nothing.
+    dispatch: false,
+  })
+
+  statusRoute('/:id/resume', {
+    from: ['paused'],
+    to: 'running',
+    dispatch: true,
   })
 
   router.delete('/:id', (req, res, next) => {

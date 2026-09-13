@@ -65,6 +65,11 @@ let stored: CampaignRow | null = row()
 let signedInAs: string | null = ALICE
 let lastPatch: CampaignPatch | null = null
 let removed = false
+let pendingContacts = 3
+let dispatched: string[] = []
+let dispatchFails = false
+/** Simulates another request moving the campaign between the read and the update. */
+let raceLost = false
 
 const repository: CampaignRepository = {
   belongsTo: () => Promise.resolve(true),
@@ -82,6 +87,14 @@ const repository: CampaignRepository = {
     removed = true
     return Promise.resolve(true)
   },
+  transition: (_campaignId, from, to) => {
+    if (raceLost || !stored || !from.includes(stored.status)) {
+      return Promise.resolve(null)
+    }
+    stored = row({ ...stored, status: to })
+    return Promise.resolve(stored)
+  },
+  countPendingContacts: () => Promise.resolve(pendingContacts),
   setAttachment: (_campaignId, attachment) =>
     Promise.resolve(
       stored
@@ -118,7 +131,18 @@ before(async () => {
     }
     next()
   })
-  app.use('/campaigns', createCampaignRouter(repository))
+  app.use(
+    '/campaigns',
+    createCampaignRouter(repository, {
+      requestDispatch: (campaignId) => {
+        if (dispatchFails) {
+          return Promise.reject(new Error('Redis unreachable'))
+        }
+        dispatched.push(campaignId)
+        return Promise.resolve()
+      },
+    }),
+  )
 
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => {
@@ -143,6 +167,10 @@ beforeEach(() => {
   signedInAs = ALICE
   lastPatch = null
   removed = false
+  pendingContacts = 3
+  dispatched = []
+  dispatchFails = false
+  raceLost = false
 })
 
 const send = (path: string, init: RequestInit = {}) =>
@@ -161,6 +189,9 @@ describe('without a session', () => {
       ['GET', `/campaigns/${CAMPAIGN}`],
       ['PATCH', `/campaigns/${CAMPAIGN}`],
       ['DELETE', `/campaigns/${CAMPAIGN}`],
+      ['POST', `/campaigns/${CAMPAIGN}/start`],
+      ['POST', `/campaigns/${CAMPAIGN}/pause`],
+      ['POST', `/campaigns/${CAMPAIGN}/resume`],
     ] as const) {
       const res = await send(path, method === 'GET' ? { method } : { method, body: '{}' })
       assert.equal(res.status, 401, `${method} ${path}`)
@@ -331,6 +362,140 @@ describe('POST /campaigns/:id/preview', () => {
     await preview({ contact: { contact_name: 'Éphémère' } })
 
     assert.equal(lastPatch, null)
+  })
+})
+
+describe('starting, pausing and resuming', () => {
+  const post = (action: string) =>
+    send(`/campaigns/${CAMPAIGN}/${action}`, { method: 'POST', body: '{}' })
+
+  const ready = () =>
+    row({ subject: 'Candidature', body_html: '<p>Bonjour</p>', body_text: 'Bonjour' })
+
+  const statusOf = async (res: Response) =>
+    ((await res.json()) as { campaign: { status: string } }).campaign.status
+
+  it('schedules a ready draft and hands it to the worker at once', async () => {
+    stored = ready()
+
+    const res = await post('start')
+
+    assert.equal(res.status, 200)
+    assert.equal(await statusOf(res), 'scheduled')
+    assert.deepEqual(dispatched, [CAMPAIGN])
+  })
+
+  it('refuses to start a campaign with no subject, with 422', async () => {
+    stored = row({ body_html: '<p>Bonjour</p>' })
+
+    const res = await post('start')
+
+    assert.equal(res.status, 422)
+    assert.equal(stored.status, 'draft')
+    assert.deepEqual(dispatched, [])
+  })
+
+  it('refuses to start a campaign whose body is only blank space', async () => {
+    stored = row({ subject: 'Candidature', body_html: '   ' })
+
+    assert.equal((await post('start')).status, 422)
+  })
+
+  it('refuses to start a campaign with nobody left to send to', async () => {
+    stored = ready()
+    pendingContacts = 0
+
+    const res = await post('start')
+
+    assert.equal(res.status, 422)
+    assert.match(((await res.json()) as { error: string }).error, /no contact/)
+  })
+
+  for (const status of [
+    'scheduled',
+    'running',
+    'paused',
+    'completed',
+  ] as CampaignStatus[]) {
+    it(`refuses to start a ${status} campaign, with 409`, async () => {
+      // A second click on "start" lands here, and must not plan twice.
+      stored = row({ ...ready(), status })
+
+      assert.equal((await post('start')).status, 409)
+      assert.deepEqual(dispatched, [])
+    })
+  }
+
+  it('still answers 200 when the queue is unreachable, because the start is stored', async () => {
+    // The scheduled pass picks the campaign up. A 500 here would invite a
+    // second click on something that worked.
+    stored = ready()
+    dispatchFails = true
+
+    const res = await post('start')
+
+    assert.equal(res.status, 200)
+    assert.equal(await statusOf(res), 'scheduled')
+  })
+
+  for (const status of ['running', 'scheduled'] as CampaignStatus[]) {
+    it(`pauses a ${status} campaign without planning anything`, async () => {
+      stored = row({ status })
+
+      const res = await post('pause')
+
+      assert.equal(res.status, 200)
+      assert.equal(await statusOf(res), 'paused')
+      assert.deepEqual(dispatched, [])
+    })
+  }
+
+  for (const status of ['draft', 'paused', 'completed'] as CampaignStatus[]) {
+    it(`refuses to pause a ${status} campaign`, async () => {
+      stored = row({ status })
+
+      assert.equal((await post('pause')).status, 409)
+    })
+  }
+
+  it('resumes a paused campaign and plans it at once', async () => {
+    stored = row({ status: 'paused' })
+
+    const res = await post('resume')
+
+    assert.equal(res.status, 200)
+    assert.equal(await statusOf(res), 'running')
+    assert.deepEqual(dispatched, [CAMPAIGN])
+  })
+
+  for (const status of [
+    'draft',
+    'scheduled',
+    'running',
+    'completed',
+  ] as CampaignStatus[]) {
+    it(`refuses to resume a ${status} campaign`, async () => {
+      stored = row({ status })
+
+      assert.equal((await post('resume')).status, 409)
+    })
+  }
+
+  it('answers 404 for another user’s campaign, and moves nothing', async () => {
+    stored = row({ ...ready(), user_id: 'bbbbbbbb-2222-4222-8222-222222222222' })
+
+    for (const action of ['start', 'pause', 'resume']) {
+      assert.equal((await post(action)).status, 404, action)
+    }
+    assert.equal(stored.status, 'draft')
+  })
+
+  it('answers 409 when another request moved the campaign first', async () => {
+    stored = ready()
+    raceLost = true
+
+    assert.equal((await post('start')).status, 409)
+    assert.deepEqual(dispatched, [])
   })
 })
 

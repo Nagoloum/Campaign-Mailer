@@ -9,9 +9,9 @@ import { configurePassport } from './config/passport.js'
 import { RATE_LIMIT, buildCorsOptions, rateLimitKey } from './config/security.js'
 import { buildSessionOptions } from './config/session.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
-import { apiRouter } from './routes/index.js'
+import { createApiRouter, type ApiRouterDeps } from './routes/index.js'
 
-export interface AppDeps {
+export interface AppDeps extends ApiRouterDeps {
   /** Injected so tests can build the app without a Redis connection. */
   sessionStore: Store
 }
@@ -24,7 +24,7 @@ export interface AppDeps {
  * restricted to FRONTEND_URL, the Redis-backed session, and the per-user rate
  * limit.
  */
-export function createApp({ sessionStore }: AppDeps): Express {
+export function createApp({ sessionStore, requestDispatch }: AppDeps): Express {
   const app = express()
 
   // Behind Railway's proxy, so req.ip and secure cookies need the hop counted.
@@ -67,7 +67,7 @@ export function createApp({ sessionStore }: AppDeps): Express {
     }),
   )
 
-  app.use('/api', apiRouter)
+  app.use('/api', createApiRouter({ requestDispatch }))
 
   app.use(notFound)
   app.use(errorHandler)

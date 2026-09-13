@@ -81,6 +81,16 @@ export interface CampaignRepository extends CampaignOwnershipRepository {
     attachment: { key: string; name: string } | null,
   ): Promise<CampaignRow | null>
   remove(campaignId: string): Promise<boolean>
+  /**
+   * Moves the campaign to `to` only if it is still in one of `from`. Null when
+   * it was not: another request moved it first.
+   */
+  transition(
+    campaignId: string,
+    from: readonly CampaignStatus[],
+    to: CampaignStatus,
+  ): Promise<CampaignRow | null>
+  countPendingContacts(campaignId: string): Promise<number>
 }
 
 /** Column names a patch may touch, so a key from a payload never reaches SQL. */
@@ -210,6 +220,33 @@ export function createCampaignRepository(pool: Pool): CampaignRepository {
       const result = await pool.query('DELETE FROM campaigns WHERE id = $1', [campaignId])
 
       return (result.rowCount ?? 0) > 0
+    },
+
+    async transition(campaignId, from, to) {
+      // One conditional statement, so two clicks on "start", or a pause racing
+      // the planner, cannot both win. The route has already checked the graph;
+      // this checks that nothing moved since.
+      const { rows } = await pool.query<CampaignRow>(
+        `UPDATE campaigns
+         SET status = $3::campaign_status,
+             scheduled_at = CASE WHEN $3::campaign_status = 'scheduled'
+                                 THEN now() ELSE scheduled_at END
+         WHERE id = $1 AND status = ANY($2::campaign_status[])
+         RETURNING ${COLUMNS}`,
+        [campaignId, from, to],
+      )
+
+      return rows[0] ?? null
+    },
+
+    async countPendingContacts(campaignId) {
+      const { rows } = await pool.query<{ total: string }>(
+        `SELECT count(*)::text AS total FROM contacts
+         WHERE campaign_id = $1 AND status = 'pending'`,
+        [campaignId],
+      )
+
+      return Number(rows[0]?.total ?? 0)
     },
   }
 }

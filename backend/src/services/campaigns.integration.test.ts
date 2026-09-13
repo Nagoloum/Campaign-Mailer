@@ -3,6 +3,7 @@ import { after, before, describe, it } from 'node:test'
 
 import pg from 'pg'
 
+import { createCampaignRepository } from './campaigns.js'
 import { renderPreview } from './preview.js'
 
 /**
@@ -117,6 +118,59 @@ describe(
           [userId, 'Mauvaise heure', 24],
         ),
       )
+    })
+
+    it('moves a campaign only from the states it names, once', async () => {
+      // The route tests use a fake; this is the SQL itself — the enum casts, the
+      // ANY over an array, and the conditional that makes a double click lose.
+      const repository = createCampaignRepository(pool)
+      const { rows } = await pool.query<{ id: string }>(
+        'INSERT INTO campaigns (user_id, name) VALUES ($1, $2) RETURNING id',
+        [userId, 'Transitions'],
+      )
+      const created = rows[0]
+      assert.ok(created)
+
+      const scheduled = await repository.transition(created.id, ['draft'], 'scheduled')
+      assert.equal(scheduled?.status, 'scheduled')
+      assert.ok(scheduled.scheduled_at instanceof Date, 'scheduling stamps scheduled_at')
+
+      assert.equal(
+        await repository.transition(created.id, ['draft'], 'scheduled'),
+        null,
+        'the second start of a double click must find nothing to move',
+      )
+
+      const paused = await repository.transition(
+        created.id,
+        ['scheduled', 'running'],
+        'paused',
+      )
+      assert.equal(paused?.status, 'paused')
+      assert.equal(
+        paused.scheduled_at?.getTime(),
+        scheduled.scheduled_at.getTime(),
+        'only scheduling stamps the date',
+      )
+    })
+
+    it('counts only the contacts still waiting to be sent', async () => {
+      const repository = createCampaignRepository(pool)
+      const { rows } = await pool.query<{ id: string }>(
+        'INSERT INTO campaigns (user_id, name) VALUES ($1, $2) RETURNING id',
+        [userId, 'Comptage'],
+      )
+      const created = rows[0]
+      assert.ok(created)
+
+      await pool.query(
+        `INSERT INTO contacts (campaign_id, email, status) VALUES
+         ($1, 'a@exemple.fr', 'pending'), ($1, 'b@exemple.fr', 'pending'),
+         ($1, 'c@exemple.fr', 'sent'), ($1, 'd@exemple.fr', 'ignored')`,
+        [created.id],
+      )
+
+      assert.equal(await repository.countPendingContacts(created.id), 2)
     })
 
     it('refuses the same address twice in one campaign, whatever the case', async () => {
