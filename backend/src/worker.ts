@@ -19,6 +19,7 @@ import { createComposer } from './services/composer.js'
 import type { SendJobData } from './services/dispatch.js'
 import { createTokenCipher } from './services/encryption.js'
 import { createGmailGateway } from './services/gmail.js'
+import { purgeExpired } from './services/retention.js'
 import { getAttachment } from './services/storage.js'
 import {
   createAccessTokenProvider,
@@ -160,6 +161,31 @@ const dispatchTimer = setInterval(planAll, DISPATCH_EVERY_MS)
 const idleTimer = setInterval(checkIdle, IDLE_CHECK_EVERY_MS)
 planAll()
 
+/**
+ * Once a day, send logs and audit events past twelve months are deleted
+ * (services/retention.ts). Run from the worker because it is the process that
+ * is always there; a missed day only means the purge takes two days' worth.
+ */
+const RETENTION_EVERY_MS = 24 * 60 * 60 * 1000
+
+function purgeOld(): void {
+  purgeExpired(pool)
+    .then((report) => {
+      if (report.logs + report.auditEvents > 0) {
+        console.log('Retention purge', report)
+      }
+    })
+    .catch((err: unknown) => {
+      console.error(
+        'Retention purge failed',
+        err instanceof Error ? err.message : String(err),
+      )
+    })
+}
+
+const retentionTimer = setInterval(purgeOld, RETENTION_EVERY_MS)
+purgeOld()
+
 console.log(`Worker started [${env.nodeEnv}]`)
 
 /**
@@ -172,6 +198,7 @@ async function shutdown(signal: string): Promise<void> {
 
   clearInterval(dispatchTimer)
   clearInterval(idleTimer)
+  clearInterval(retentionTimer)
 
   setTimeout(() => {
     console.error('Forced exit after shutdown timeout')
