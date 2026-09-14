@@ -22,6 +22,11 @@ export interface Campaign {
   scheduledAt: string | null
   startedAt: string | null
   completedAt: string | null
+  /** Present on a single campaign, not in the list. */
+  sending?: {
+    accountSentLast24h: number
+    accountDailyLimit: number | null
+  }
 }
 
 export interface StarterTemplate {

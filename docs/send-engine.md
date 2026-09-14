@@ -11,14 +11,21 @@ failures, not for the happy path.
 
 ## The shape
 
-Two queues on BullMQ.
+One BullMQ queue, `campaign`, with two kinds of job, run by one worker.
 
-**`campaign-dispatch`** runs on a schedule. For every campaign in `running` it
-works out how many messages may go out today, takes that many `pending`
-contacts, and schedules one send job for each.
+**`dispatch`** runs on a schedule and on demand. For every scheduled or running
+campaign it works out how many messages may go out today, takes that many
+`pending` contacts, and schedules one send job for each.
 
-**`email-send`** carries one job per contact. A job claims its contact, asks
-Gmail to send, and records the outcome.
+**`send`** carries one job per contact. A job claims its contact, asks Gmail to
+send, and records the outcome.
+
+One queue rather than two because each queue needs a worker, and an idle worker
+polls Redis: a blocking call of at most ten seconds and a script, every cycle.
+On Upstash's free tier, where every command counts against 500 000 a month,
+two idle workers measured 14 commands a minute (about 605 000 a month) and one
+measured 12 (about 518 000). One queue helps; it does not, alone, bring an
+always-on worker under the allowance.
 
 Planning and sending are separate because they fail differently. Planning is
 cheap, idempotent and can be repeated; sending is the irreversible act.
@@ -103,8 +110,8 @@ server's: a campaign set to nine in the morning must follow daylight saving,
 which is why the schema stores an IANA zone and the validator refuses a fixed
 offset.
 
-Jobs are delayed, one per contact, spaced by `pause_ms` plus a random jitter of
-up to twenty percent. The jitter is not decoration: a perfectly regular
+Jobs are delayed, one per contact, spaced by `pause_ms` — ten seconds at least,
+thirty by default — plus a random jitter of up to twenty percent. The jitter is not decoration: a perfectly regular
 interval is a signature, and sending in a burst is what gets an account
 flagged.
 
@@ -118,9 +125,10 @@ Two ceilings, checked before planning and again before each send.
 already sent during its local day.
 
 **The account's**, `GMAIL_DAILY_LIMIT`, counted across every campaign the user
-owns over a rolling 24 hours, the way Gmail counts it. It sits below Google's real ceiling — roughly 150 a day on a personal
-account — so the messages a user sends by hand from the same mailbox do not
-push them over it.
+owns over a rolling 24 hours, the way Gmail counts it: 450. Google blocks a
+personal account past 500, so the messages a user sends by hand from the same
+mailbox still fit. No campaign may set a daily pace above 450, and the process
+refuses to start with a ceiling above 500.
 
 Reaching the account ceiling pauses the sending, not the campaign: its status
 stays `running`, the planner queues nothing, and a job that reaches the

@@ -115,8 +115,8 @@ export function isAmbiguous(contact: SendableContact): boolean {
 export async function countSentToday(pool: Pool, userId: string): Promise<number> {
   // Counted from the log rows themselves rather than a running total, so a
   // half-failed write cannot inflate the allowance. A rolling 24 hours, as
-  // Gmail counts, not a calendar day: midnight UTC would let 150 go out at
-  // 23:00 and another 150 at 00:05.
+  // Gmail counts, not a calendar day: midnight UTC would let 450 go out at
+  // 23:00 and another 450 at 00:05.
   const { rows } = await pool.query<{ total: string }>(
     `SELECT count(*)::text AS total
      FROM logs l

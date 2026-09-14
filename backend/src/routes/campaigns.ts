@@ -28,6 +28,11 @@ export interface CampaignRouterOptions {
    * pass. Optional so the router can be built without a queue.
    */
   requestDispatch?: ((campaignId: string) => Promise<void>) | undefined
+  /**
+   * The account's ceiling over 24 hours. Returned with a single campaign so the
+   * interface can say when the ceiling, not a fault, is what holds the sending.
+   */
+  accountDailyLimit?: number | undefined
 }
 
 /**
@@ -60,6 +65,20 @@ export function createCampaignRouter(
   const paramId = (req: { params: Record<string, unknown> }): string | null =>
     isUuid(req.params.id) ? req.params.id : null
 
+  /**
+   * A campaign with its account's sending over the last 24 hours.
+   *
+   * Only on single-campaign answers: the list would pay a count per row for
+   * a number nobody reads there.
+   */
+  const withSending = async (row: CampaignRow) => ({
+    ...toPublicCampaign(row),
+    sending: {
+      accountSentLast24h: await campaigns.accountSentLast24h(row.user_id),
+      accountDailyLimit: options.accountDailyLimit ?? null,
+    },
+  })
+
   router.get('/', (req, res, next) => {
     campaigns
       .listForUser(userId(req))
@@ -90,7 +109,7 @@ export function createCampaignRouter(
         return
       }
 
-      res.json({ campaign: toPublicCampaign(row) })
+      res.json({ campaign: await withSending(row) })
     })().catch(next)
   })
 
@@ -232,7 +251,7 @@ export function createCampaignRouter(
           await dispatchSoon(updated.id)
         }
 
-        res.json({ campaign: toPublicCampaign(updated) })
+        res.json({ campaign: await withSending(updated) })
       })().catch(next)
     })
   }

@@ -112,8 +112,9 @@ export function LaunchDialog({
               Si quelqu’un vous demande de ne plus lui écrire, ignorez-le dans la liste.
             </li>
             <li>
-              Gmail surveille les envois en nombre. Un compte personnel est bloqué au-delà
-              d’environ 150 messages par jour ; sur un compte récent, commencez plus bas.
+              Gmail bloque un compte personnel au-delà de 500 envois sur 24 heures.
+              L’application s’arrête à 450, toutes campagnes confondues ; sur un compte
+              récent, commencez plus bas.
             </li>
           </ul>
         </div>

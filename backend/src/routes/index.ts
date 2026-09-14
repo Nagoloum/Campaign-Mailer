@@ -1,5 +1,6 @@
 import express, { Router } from 'express'
 
+import { env } from '../config/env.js'
 import { pool } from '../db/pool.js'
 import { requireAuth } from '../middleware/auth.js'
 import { createCampaignRepository } from '../services/campaigns.js'
@@ -41,7 +42,10 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
 
   apiRouter.use(
     '/campaigns',
-    createCampaignRouter(campaignRepository, { requestDispatch: deps.requestDispatch }),
+    createCampaignRouter(campaignRepository, {
+      requestDispatch: deps.requestDispatch,
+      accountDailyLimit: env.gmailDailyLimit,
+    }),
   )
   apiRouter.use('/campaigns/:id/attachment', createAttachmentRouter(campaignRepository))
   apiRouter.use(

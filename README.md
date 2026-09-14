@@ -119,9 +119,9 @@ Run from the repository root. Each one delegates to every workspace that defines
 
 | Command                  | Purpose                                           |
 | ------------------------ | ------------------------------------------------- |
-| `npm run dev`            | Start API, worker and web app in watch mode       |
+| `npm run dev`            | Start the API and the web app in watch mode       |
 | `npm run dev:backend`    | Start the API alone on port 3000                  |
-| `npm run dev:worker`     | Start the send worker alone                       |
+| `npm run dev:worker`     | Start the send worker (only while testing sends)  |
 | `npm run dev:frontend`   | Start the web app alone on port 5173              |
 | `npm run build`          | Produce production builds                         |
 | `npm run lint`           | oxlint on the frontend, ESLint on the backend     |
@@ -152,7 +152,7 @@ The frontend runs **oxlint**, which ships with the Vite template and is fast eno
 
 ## Sending limits and responsible use
 
-Gmail enforces a daily sending cap: roughly 150 messages a day for a personal account and 1500 for a Google Workspace account. The application enforces its own cap below that limit and pauses a campaign as it approaches it.
+Gmail blocks a personal account that sends more than 500 messages over a rolling 24 hours ([Google's limits](https://support.google.com/mail/answer/22839)). The application stops each account at 450, across all its campaigns, and refuses a daily pace above that. When the ceiling is reached a running campaign stays running, sends nothing, tells the user why, and resumes by itself once the window frees. Two sends are at least 10 seconds apart, 30 by default, plus a random jitter.
 
 Exceeding the cap, or sending an identical message to a large list, can get a Google account suspended and can damage sender reputation. Anyone operating this application is responsible for the messages they send, for complying with data protection law and with law governing unsolicited commercial email, and for honouring unsubscribe requests.
 

@@ -120,6 +120,28 @@ describe(
       )
     })
 
+    it('refuses a pace the account cannot bear, even without the API', async () => {
+      for (const [column, value] of [
+        ['pause_ms', 9_999],
+        ['mails_per_day', 451],
+      ] as const) {
+        await assert.rejects(
+          pool.query(
+            `INSERT INTO campaigns (user_id, name, ${column}) VALUES ($1, $2, $3)`,
+            [userId, 'Trop rapide', value],
+          ),
+          `${column} = ${String(value)} was accepted`,
+        )
+      }
+    })
+
+    it('paces a new campaign at thirty seconds by default', async () => {
+      const repository = createCampaignRepository(pool)
+      const created = await repository.create(userId, { name: 'Par défaut' })
+
+      assert.equal(created.pause_ms, 30_000)
+    })
+
     it('moves a campaign only from the states it names, once', async () => {
       // The route tests use a fake; this is the SQL itself — the enum casts, the
       // ANY over an array, and the conditional that makes a double click lose.

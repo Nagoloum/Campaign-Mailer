@@ -3,8 +3,13 @@ import { useMemo, useState } from 'react'
 import { ApiError } from '@/services/api'
 import { campaignsApi, type Campaign } from '@/services/campaigns'
 
-/** Google's own ceiling: about 150 a day on a personal account, 1500 on Workspace. */
-const PERSONAL_DAILY_CEILING = 150
+/**
+ * Mirrors the server. Google allows a personal account 500 a day; the
+ * application stops at 450 so the user's own messages still fit.
+ */
+const MAX_PER_DAY = 450
+/** Ten seconds at least between two sends: a burst is what gets an account flagged. */
+const MIN_PAUSE_SECONDS = 10
 
 function timeZones(): string[] {
   try {
@@ -43,6 +48,9 @@ export function CadenceForm({ campaign, disabled, onSaved }: CadenceFormProps) {
       ? Math.ceil((campaign.totalContacts - campaign.sentCount) / mailsPerDay)
       : null
 
+  const tooMany = mailsPerDay > MAX_PER_DAY
+  const tooFast = pauseSeconds < MIN_PAUSE_SECONDS
+
   async function save() {
     setSaving(true)
     setError(null)
@@ -75,7 +83,7 @@ export function CadenceForm({ campaign, disabled, onSaved }: CadenceFormProps) {
           <input
             type="number"
             min={1}
-            max={1500}
+            max={MAX_PER_DAY}
             value={mailsPerDay}
             disabled={disabled}
             onChange={(event) => {
@@ -109,7 +117,7 @@ export function CadenceForm({ campaign, disabled, onSaved }: CadenceFormProps) {
           </span>
           <input
             type="number"
-            min={1}
+            min={MIN_PAUSE_SECONDS}
             max={600}
             value={pauseSeconds}
             disabled={disabled}
@@ -154,13 +162,25 @@ export function CadenceForm({ campaign, disabled, onSaved }: CadenceFormProps) {
           </p>
         )}
 
-        {/* Said before the send, not after the account is blocked. */}
-        {mailsPerDay > PERSONAL_DAILY_CEILING && (
+        {/* Said before saving, not after the account is blocked. */}
+        {tooMany && (
           <p role="alert" className="text-amber-700">
-            Au-delà de {PERSONAL_DAILY_CEILING} par jour, un compte Gmail personnel est
-            bloqué. Ce réglage ne convient qu’à un compte Google Workspace.
+            {MAX_PER_DAY} par jour au maximum. Gmail bloque un compte personnel au-delà de
+            500 envois sur 24 heures, et vos e-mails envoyés à la main comptent aussi.
           </p>
         )}
+
+        {tooFast && (
+          <p role="alert" className="text-amber-700">
+            {MIN_PAUSE_SECONDS} secondes au minimum entre deux envois : des envois en
+            rafale font repérer le compte.
+          </p>
+        )}
+
+        <p>
+          Plafond du compte : {MAX_PER_DAY} e-mails sur 24 heures, toutes campagnes
+          confondues. Atteint, l’envoi attend que la fenêtre se libère puis reprend seul.
+        </p>
 
         <p>
           L’heure de départ est interprétée dans le fuseau choisi, pas dans celui de votre
@@ -178,7 +198,7 @@ export function CadenceForm({ campaign, disabled, onSaved }: CadenceFormProps) {
         <button
           type="button"
           onClick={() => void save()}
-          disabled={saving}
+          disabled={saving || tooMany || tooFast}
           className="mt-3 rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-raised disabled:opacity-50"
         >
           {saving ? 'Enregistrement…' : 'Enregistrer le rythme'}

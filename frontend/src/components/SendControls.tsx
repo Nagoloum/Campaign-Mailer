@@ -100,6 +100,19 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
         )}
       </div>
 
+      {ceilingReached(campaign) && (
+        // Without this a running campaign that sends nothing looks broken. It is
+        // the ceiling doing its job, and it clears by itself.
+        <p
+          role="status"
+          className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+        >
+          Plafond atteint : {campaign.sending?.accountSentLast24h} e-mails envoyés par ce
+          compte sur les dernières 24 heures, sur {campaign.sending?.accountDailyLimit}{' '}
+          autorisés. L’envoi reprend seul dès que la fenêtre se libère ; rien n’est perdu.
+        </p>
+      )}
+
       {campaign.status === 'draft' && blocker && (
         <p className="mt-2 text-xs text-ink-muted">{blocker}</p>
       )}
@@ -145,6 +158,18 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
         }}
       />
     </section>
+  )
+}
+
+/** True when a sending campaign is being held by the account's 24-hour ceiling. */
+function ceilingReached(campaign: Campaign): boolean {
+  const limit = campaign.sending?.accountDailyLimit
+
+  return (
+    (campaign.status === 'running' || campaign.status === 'scheduled') &&
+    limit !== undefined &&
+    limit !== null &&
+    (campaign.sending?.accountSentLast24h ?? 0) >= limit
   )
 }
 

@@ -97,9 +97,11 @@ export const env = {
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
 
   // Messages one account may send over a rolling 24 hours, across every
-  // campaign. Below Google's own ceiling (about 150 personal, 1500 Workspace),
-  // so what the user sends by hand from the same mailbox still fits.
-  gmailDailyLimit: optionalInteger('GMAIL_DAILY_LIMIT', 120, 1, 1500),
+  // campaign. Google allows a personal account 500 (support.google.com/mail/
+  // answer/22839); 450 leaves room for what the user sends by hand from the
+  // same mailbox. Never above 500: past it Google blocks the account for up to
+  // a day, and no setting here can undo that.
+  gmailDailyLimit: optionalInteger('GMAIL_DAILY_LIMIT', 450, 1, 500),
 
   storage: {
     endpoint: required('S3_ENDPOINT'),

@@ -259,7 +259,7 @@ beforeEach(async () => {
     `INSERT INTO campaigns (user_id, name, status, subject, body_html, body_text,
                             mails_per_day, start_hour, timezone)
      VALUES ($1, 'Pipeline', 'running', 'Bonjour {{contact_name|}}', '<p>Bonjour</p>', 'Bonjour',
-             1500, 0, 'UTC')
+             450, 0, 'UTC')
      RETURNING id`,
     [userId],
   )

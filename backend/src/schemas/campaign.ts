@@ -15,15 +15,20 @@ const MAX_SUBJECT = 500
 const MAX_NAME = 200
 
 /**
- * Gmail allows roughly 150 a day on a personal account and 1500 on Workspace.
- * The upper bound here is the ceiling of what the platform could ever permit;
- * GMAIL_DAILY_LIMIT caps the application well below it at send time.
+ * Google allows a personal Gmail account 500 messages over a rolling 24 hours.
+ * A campaign may not ask for more than the application's own account ceiling,
+ * 450, so a daily batch that Gmail would refuse cannot even be saved. Workspace
+ * accounts, allowed more, are a post-MVP item.
  */
 const MIN_MAILS_PER_DAY = 1
-const MAX_MAILS_PER_DAY = 1500
+export const MAX_MAILS_PER_DAY = 450
 
-/** Sending in a burst is what gets an account flagged, so a floor, not zero. */
-const MIN_PAUSE_MS = 1000
+/**
+ * Ten seconds at least between two sends, thirty by default. A burst is what
+ * gets an account flagged; the pace of a person writing is what does not.
+ */
+export const MIN_PAUSE_MS = 10_000
+export const DEFAULT_PAUSE_MS = 30_000
 const MAX_PAUSE_MS = 600_000
 
 /**

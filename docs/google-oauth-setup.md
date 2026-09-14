@@ -113,7 +113,7 @@ Filing this before the app is finished is deliberate. Review runs on Google's sc
 | `access_denied` while in Testing       | The account is not in the test-user list. Owning the project does not exempt it. See step 3.                                                                                                                               |
 | No refresh token on the second sign-in | Google returns one only on first authorization. The backend requests `access_type=offline` and `prompt=consent` to force a new one, and never overwrites a stored refresh token with an empty value.                       |
 | `invalid_grant` after some days        | The refresh token was revoked: the user removed access, changed their password, or the app is still in Testing, where refresh tokens expire after seven days. This last one is a reason to finish verification, not a bug. |
-| Sends stop around 100 or 150 a day     | Gmail's own cap. `GMAIL_DAILY_LIMIT` stays below it on purpose.                                                                                                                                                            |
+| Sends stop at 450 a day                | The application's ceiling, `GMAIL_DAILY_LIMIT`, kept below Gmail's own 500 on purpose. Sending resumes by itself as the 24-hour window frees.                                                                              |
 
 ---
 

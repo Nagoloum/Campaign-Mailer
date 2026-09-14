@@ -66,6 +66,7 @@ let signedInAs: string | null = ALICE
 let lastPatch: CampaignPatch | null = null
 let removed = false
 let pendingContacts = 3
+let accountSent = 0
 let dispatched: string[] = []
 let dispatchFails = false
 /** Simulates another request moving the campaign between the read and the update. */
@@ -95,6 +96,7 @@ const repository: CampaignRepository = {
     return Promise.resolve(stored)
   },
   countPendingContacts: () => Promise.resolve(pendingContacts),
+  accountSentLast24h: () => Promise.resolve(accountSent),
   setAttachment: (_campaignId, attachment) =>
     Promise.resolve(
       stored
@@ -134,6 +136,7 @@ before(async () => {
   app.use(
     '/campaigns',
     createCampaignRouter(repository, {
+      accountDailyLimit: 450,
       requestDispatch: (campaignId) => {
         if (dispatchFails) {
           return Promise.reject(new Error('Redis unreachable'))
@@ -168,6 +171,7 @@ beforeEach(() => {
   lastPatch = null
   removed = false
   pendingContacts = 3
+  accountSent = 0
   dispatched = []
   dispatchFails = false
   raceLost = false
@@ -260,6 +264,21 @@ describe('GET /campaigns/:id', () => {
     const res = await send('/campaigns/not-a-uuid')
 
     assert.equal(res.status, 404)
+  })
+
+  it('says how much of the account’s 24-hour ceiling is spent', async () => {
+    // The interface needs it to tell a user that the ceiling, not a fault, is
+    // what holds a running campaign.
+    accountSent = 450
+
+    const body = (await (await send(`/campaigns/${CAMPAIGN}`)).json()) as {
+      campaign: { sending: { accountSentLast24h: number; accountDailyLimit: number } }
+    }
+
+    assert.deepEqual(body.campaign.sending, {
+      accountSentLast24h: 450,
+      accountDailyLimit: 450,
+    })
   })
 
   it('does not expose the owner id', async () => {

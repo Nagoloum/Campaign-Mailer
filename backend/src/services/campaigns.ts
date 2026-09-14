@@ -2,6 +2,7 @@ import type { Pool } from 'pg'
 
 import type { CampaignOwnershipRepository } from '../middleware/auth.js'
 import type { CampaignStatus } from './campaignState.js'
+import { countSentToday } from './sendEngine.js'
 
 export interface CampaignRow {
   id: string
@@ -91,6 +92,8 @@ export interface CampaignRepository extends CampaignOwnershipRepository {
     to: CampaignStatus,
   ): Promise<CampaignRow | null>
   countPendingContacts(campaignId: string): Promise<number>
+  /** What the account sent over the last 24 hours, across every campaign. */
+  accountSentLast24h(userId: string): Promise<number>
 }
 
 /** Column names a patch may touch, so a key from a payload never reaches SQL. */
@@ -133,7 +136,7 @@ export function createCampaignRepository(pool: Pool): CampaignRepository {
         `INSERT INTO campaigns (user_id, name, subject, body_html, body_text,
                                 mails_per_day, start_hour, pause_ms, timezone)
          VALUES ($1, $2, $3, $4, $5,
-                 COALESCE($6, 46), COALESCE($7, 9), COALESCE($8, 3000), COALESCE($9, 'Europe/Paris'))
+                 COALESCE($6, 46), COALESCE($7, 9), COALESCE($8, 30000), COALESCE($9, 'Europe/Paris'))
          RETURNING ${COLUMNS}`,
         [
           userId,
@@ -237,6 +240,12 @@ export function createCampaignRepository(pool: Pool): CampaignRepository {
       )
 
       return rows[0] ?? null
+    },
+
+    async accountSentLast24h(userId) {
+      // The same count the send engine checks against the ceiling, so what the
+      // user reads and what holds the sending cannot disagree.
+      return countSentToday(pool, userId)
     },
 
     async countPendingContacts(campaignId) {

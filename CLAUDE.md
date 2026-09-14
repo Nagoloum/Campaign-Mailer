@@ -80,7 +80,9 @@ The send engine, spread across `services/` and `jobs/`, is the part of this code
 
 - **Idempotency.** A contact must never receive the same campaign email twice, including after a worker is killed mid-campaign and restarted. Enforced by a lock on the contact plus a uniqueness constraint keyed on `(campaign_id, contact_id)`.
 - **A campaign state machine.** `draft → scheduled → running → paused → running → completed`. Any transition outside that graph is rejected with a 409, not silently applied.
-- **A hard daily cap** below Gmail's own limit (roughly 150 messages a day for a personal account, 1500 for Workspace), with the campaign pausing itself as it approaches the cap.
+- **A hard daily cap** below Gmail's own limit. Google blocks a personal account past 500 messages over a rolling 24 hours; the application stops each account at 450 (`GMAIL_DAILY_LIMIT`, refused above 500) and no campaign may ask for more. Reaching it holds the sending without changing the campaign's status: it stays `running` and resumes by itself when the window frees, and the interface says so. The owner decided this on 14 September 2026, over the roadmap's original "pause the campaign", because a paused campaign would need resuming by hand every morning. Two sends are at least 10 seconds apart, 30 by default.
+
+The worker is not part of `npm run dev`. Upstash's free tier counts every Redis command, and an idle BullMQ worker polls: start it with `npm run dev:worker` only while working on sending. BullMQ runs one queue with two job kinds (`dispatch`, `send`) rather than two queues, because each queue needs its own polling worker.
 
 Two other sensitive areas: Google access and refresh tokens are encrypted at rest with AES-256-GCM and must never appear in a log line, an error message or an API response; and every value interpolated into an email template is attacker-controlled input from a CSV file, so it is escaped without exception.
 

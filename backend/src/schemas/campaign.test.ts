@@ -42,16 +42,19 @@ describe('createCampaignSchema', () => {
   describe('cadence bounds mirror the database constraints', () => {
     const cases: [string, unknown, boolean][] = [
       ['mails_per_day at 1', { mails_per_day: 1 }, true],
-      ['mails_per_day at 1500', { mails_per_day: 1500 }, true],
+      // 450: Google blocks a personal account past 500 a day, and the user's
+      // own messages count too.
+      ['mails_per_day at 450', { mails_per_day: 450 }, true],
       ['mails_per_day at 0', { mails_per_day: 0 }, false],
-      ['mails_per_day at 1501', { mails_per_day: 1501 }, false],
+      ['mails_per_day at 451', { mails_per_day: 451 }, false],
       ['mails_per_day fractional', { mails_per_day: 1.5 }, false],
       ['start_hour at 0', { start_hour: 0 }, true],
       ['start_hour at 23', { start_hour: 23 }, true],
       ['start_hour at 24', { start_hour: 24 }, false],
       ['start_hour negative', { start_hour: -1 }, false],
-      ['pause_ms at 1000', { pause_ms: 1000 }, true],
-      ['pause_ms at 999', { pause_ms: 999 }, false],
+      ['pause_ms at 10000', { pause_ms: 10_000 }, true],
+      ['pause_ms at 9999', { pause_ms: 9_999 }, false],
+      ['pause_ms at the old 3000 default', { pause_ms: 3000 }, false],
       ['pause_ms at 600000', { pause_ms: 600_000 }, true],
       ['pause_ms at 600001', { pause_ms: 600_001 }, false],
     ]
