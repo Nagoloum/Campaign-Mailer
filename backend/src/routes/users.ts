@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import type { DeletionReport } from '../services/accountDeletion.js'
 import type { AuditLog } from '../services/audit.js'
+import { CURRENT_TERMS_VERSION } from '../services/terms.js'
 import { contactsToCsv, type UserExport } from '../services/userExport.js'
 
 export interface UsersRouterDeps {
@@ -13,7 +14,10 @@ export interface UsersRouterDeps {
   exportUser: (userId: string) => Promise<UserExport | null>
   /** Records each export and each deletion. */
   audit?: AuditLog | undefined
+  acceptTerms: (userId: string, version: string) => Promise<void>
 }
+
+const acceptTermsSchema = z.object({ version: z.string().min(1).max(40) }).strict()
 
 /**
  * The address, typed again. Not a password — the account has none — but proof
@@ -28,6 +32,7 @@ export function createUsersRouter({
   deleteAccount,
   exportUser,
   audit,
+  acceptTerms,
 }: UsersRouterDeps): Router {
   const router = Router()
 
@@ -82,6 +87,30 @@ export function createUsersRouter({
           })
         })
       })
+    })().catch(next)
+  })
+
+  /**
+   * POST /api/users/me/terms — accepts the terms and privacy policy.
+   *
+   * The version sent must be the current one: accepting a page the user saw in
+   * a tab left open since the previous version would record consent to text
+   * they never read. Answers 409 then, and the interface shows the new text.
+   */
+  router.post('/me/terms', validateBody(acceptTermsSchema), (req, res, next) => {
+    void (async () => {
+      const user = req.user as { id: string }
+      const { version } = req.body as z.infer<typeof acceptTermsSchema>
+
+      if (version !== CURRENT_TERMS_VERSION) {
+        res.status(409).json({ error: 'These are not the current terms' })
+        return
+      }
+
+      await acceptTerms(user.id, version)
+      await audit?.record(user.id, 'terms.accepted')
+
+      res.status(204).end()
     })().catch(next)
   })
 

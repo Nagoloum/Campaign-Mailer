@@ -11,6 +11,8 @@ export const accountApi = {
   /** The address typed again is the confirmation the server requires. */
   delete: (email: string) => api.deleteWith<DeletionReport>('/users/me', { email }),
 
+  acceptTerms: (version: string) => api.post<void>('/users/me/terms', { version }),
+
   /** Plain links: the browser downloads, the session cookie rides along. */
   exportUrl: (format: 'json' | 'csv') => `/api/users/me/export?format=${format}`,
 }

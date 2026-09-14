@@ -4,6 +4,8 @@ export interface CurrentUser {
   id: string
   email: string
   createdAt: string
+  /** The version of the terms accepted, or null before the first acceptance. */
+  termsVersion: string | null
 }
 
 /**

@@ -1,9 +1,11 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { useAuth } from '@/auth/useAuth'
+import { TERMS_VERSION } from '@/services/legal'
 
 import { FullPageSpinner } from './FullPageSpinner'
 import { ServerUnreachable } from './ServerUnreachable'
+import { TermsAcceptance } from './TermsAcceptance'
 
 /**
  * Keeps the signed-in area behind a session.
@@ -17,7 +19,7 @@ import { ServerUnreachable } from './ServerUnreachable'
  * shell.
  */
 export function RequireAuth() {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const location = useLocation()
 
   if (status === 'loading') {
@@ -32,6 +34,12 @@ export function RequireAuth() {
     // Carries where the user was going, so they land there after signing in
     // rather than on a generic home page.
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  // The current terms come before the service. The account page stays
+  // reachable: exporting or deleting one's data does not wait on accepting.
+  if (user && user.termsVersion !== TERMS_VERSION && location.pathname !== '/account') {
+    return <TermsAcceptance />
   }
 
   return <Outlet />

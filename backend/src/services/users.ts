@@ -26,6 +26,8 @@ export interface UserRow {
   id: string
   email: string
   google_id: string
+  /** The version of the terms this user accepted, or null before the first. */
+  terms_version: string | null
   created_at: Date
   updated_at: Date
 }
@@ -35,6 +37,8 @@ export interface PublicUser {
   id: string
   email: string
   createdAt: string
+  /** Lets the interface ask for acceptance before anything else. */
+  termsVersion: string | null
 }
 
 /**
@@ -49,6 +53,7 @@ export function toPublicUser(user: UserRow): PublicUser {
     id: user.id,
     email: user.email,
     createdAt: new Date(user.created_at).toISOString(),
+    termsVersion: user.terms_version ?? null,
   }
 }
 
@@ -69,7 +74,7 @@ const UPSERT_SQL = `
     -- account unable to send until the user revokes access and starts over.
     google_refresh_token    = COALESCE(EXCLUDED.google_refresh_token, users.google_refresh_token),
     google_token_expires_at = COALESCE(EXCLUDED.google_token_expires_at, users.google_token_expires_at)
-  RETURNING id, email, google_id, created_at, updated_at
+  RETURNING id, email, google_id, terms_version, created_at, updated_at
 `
 
 export function createUserRepository(pool: Pool): UserRepository {
@@ -94,7 +99,7 @@ export function createUserRepository(pool: Pool): UserRepository {
 
     async findById(id) {
       const { rows } = await pool.query<UserRow>(
-        'SELECT id, email, google_id, created_at, updated_at FROM users WHERE id = $1',
+        'SELECT id, email, google_id, terms_version, created_at, updated_at FROM users WHERE id = $1',
         [id],
       )
 

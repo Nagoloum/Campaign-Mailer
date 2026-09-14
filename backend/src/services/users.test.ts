@@ -21,6 +21,7 @@ describe('toPublicUser', () => {
       id: 'user-uuid',
       email: 'person@example.com',
       createdAt: '2026-09-11T10:00:00.000Z',
+      termsVersion: null,
     })
   })
 

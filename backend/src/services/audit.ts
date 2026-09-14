@@ -20,6 +20,7 @@ export const AUDIT_ACTIONS = [
   'campaign.resumed',
   'account.exported',
   'account.deleted',
+  'terms.accepted',
 ] as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]

@@ -4,6 +4,7 @@ import { after, before, beforeEach, describe, it } from 'node:test'
 
 import express from 'express'
 
+import { CURRENT_TERMS_VERSION } from '../services/terms.js'
 import type { UserExport } from '../services/userExport.js'
 
 import { createUsersRouter } from './users.js'
@@ -16,6 +17,7 @@ let sessionDestroyed: boolean
 let exportedFor: string[] = []
 let exportMissing = false
 let audited: string[] = []
+let acceptedFor: string[] = []
 
 const SAMPLE_EXPORT: UserExport = {
   exportedAt: '2026-09-14T10:00:00.000Z',
@@ -88,6 +90,10 @@ before(async () => {
         deletedFor.push(userId)
         return Promise.resolve({ deleted: true, googleRevoked: true, filesPurged: false })
       },
+      acceptTerms: (userId, version) => {
+        acceptedFor.push(`${userId}:${version}`)
+        return Promise.resolve()
+      },
       audit: {
         record: (actor, action) => {
           audited.push(`${action}:${actor}`)
@@ -124,6 +130,43 @@ beforeEach(() => {
   exportedFor = []
   exportMissing = false
   audited = []
+  acceptedFor = []
+})
+
+describe('POST /users/me/terms', () => {
+  const accept = (body: unknown) =>
+    fetch(`${baseUrl}/users/me/terms`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+  it('refuses a request without a session', async () => {
+    signedIn = null
+    assert.equal((await accept({ version: CURRENT_TERMS_VERSION })).status, 401)
+    assert.deepEqual(acceptedFor, [])
+  })
+
+  it('records acceptance of the current version, and its proof in the audit log', async () => {
+    const res = await accept({ version: CURRENT_TERMS_VERSION })
+
+    assert.equal(res.status, 204)
+    assert.deepEqual(acceptedFor, [`${ALICE.id}:${CURRENT_TERMS_VERSION}`])
+    assert.deepEqual(audited, [`terms.accepted:${ALICE.id}`])
+  })
+
+  it('refuses a version that is not the current one, with 409', async () => {
+    // A tab left open since the previous terms: consent to text never read.
+    const res = await accept({ version: '2020-01-01' })
+
+    assert.equal(res.status, 409)
+    assert.deepEqual(acceptedFor, [])
+    assert.deepEqual(audited, [])
+  })
+
+  it('refuses a body without a version', async () => {
+    assert.equal((await accept({})).status, 400)
+  })
 })
 
 describe('GET /users/me/export', () => {

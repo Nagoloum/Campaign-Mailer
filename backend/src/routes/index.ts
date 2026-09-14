@@ -3,6 +3,7 @@ import express, { Router } from 'express'
 import { env } from '../config/env.js'
 import { pool } from '../db/pool.js'
 import { requireAuth } from '../middleware/auth.js'
+import { requireCurrentTerms } from '../middleware/terms.js'
 import { createCampaignRepository } from '../services/campaigns.js'
 import { deleteAccount } from '../services/accountDeletion.js'
 import { createAuditLog } from '../services/audit.js'
@@ -10,6 +11,7 @@ import { createContactRepository } from '../services/contacts.js'
 import { createTokenCipher } from '../services/encryption.js'
 import { createGoogleTokenRevoker } from '../services/googleRevoke.js'
 import { deleteCampaignFiles } from '../services/storage.js'
+import { createTermsRepository } from '../services/terms.js'
 import { buildUserExport } from '../services/userExport.js'
 import { createLogExportRepository } from '../services/logExport.js'
 import { createStatsRepository } from '../services/stats.js'
@@ -52,6 +54,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
   apiRouter.use('/auth', authRouter)
 
   const audit = createAuditLog(pool)
+  const terms = createTermsRepository(pool)
 
   const deletion = {
     pool,
@@ -65,8 +68,14 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
       deleteAccount: (userId) => deleteAccount(deletion, userId),
       exportUser: (userId) => buildUserExport(pool, userId),
       audit,
+      acceptTerms: (userId, version) => terms.accept(userId, version),
     }),
   )
+  // Everything below this line does the work of the service, and waits on the
+  // current terms being accepted. The account routes above do not: exporting
+  // and deleting one's data are rights.
+  apiRouter.use(['/campaigns', '/dashboard', '/templates'], requireCurrentTerms)
+
   const campaignRepository = createCampaignRepository(pool)
 
   apiRouter.use(
