@@ -6,7 +6,12 @@ import helmet from 'helmet'
 
 import { env, isProduction } from './config/env.js'
 import { configurePassport } from './config/passport.js'
-import { RATE_LIMIT, buildCorsOptions, rateLimitKey } from './config/security.js'
+import {
+  RATE_LIMIT,
+  buildCorsOptions,
+  buildHelmetOptions,
+  rateLimitKey,
+} from './config/security.js'
 import { buildSessionOptions } from './config/session.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
 import { createApiRouter, type ApiRouterDeps } from './routes/index.js'
@@ -32,7 +37,7 @@ export function createApp({ sessionStore, requestDispatch }: AppDeps): Express {
   app.disable('x-powered-by')
 
   // First, so the headers are present on every response including errors.
-  app.use(helmet())
+  app.use(helmet(buildHelmetOptions(isProduction)))
   app.use(cors(buildCorsOptions(env.frontendUrl)))
 
   app.use(express.json({ limit: '1mb' }))

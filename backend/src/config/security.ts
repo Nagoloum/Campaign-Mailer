@@ -1,6 +1,39 @@
 import type { CorsOptions } from 'cors'
 import type { Request } from 'express'
 import { ipKeyGenerator } from 'express-rate-limit'
+import type { HelmetOptions } from 'helmet'
+
+/**
+ * Response headers for the API.
+ *
+ * The API serves JSON, one redirect flow and file downloads, never a page, so
+ * its Content-Security-Policy allows nothing at all: a response that somehow
+ * rendered as HTML could load no script, no style and no frame, and could not
+ * be framed itself. The web application's own policy, which does have to
+ * allow things, is set where it is served (frontend/vercel.json).
+ *
+ * HSTS only in production. Sent from localhost it would teach a developer's
+ * browser to refuse plain HTTP to that host for a year.
+ */
+export function buildHelmetOptions(isProduction: boolean): HelmetOptions {
+  return {
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    },
+    strictTransportSecurity: isProduction
+      ? { maxAge: 31_536_000, includeSubDomains: true }
+      : false,
+    // The API has no reason to tell anyone which URL a request came from.
+    referrerPolicy: { policy: 'no-referrer' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+  }
+}
 
 /** Section 8 of the specification: 100 requests a minute per user. */
 export const RATE_LIMIT = {
