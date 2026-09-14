@@ -1,11 +1,11 @@
-import { Worker } from 'bullmq'
+import { Worker, type Job } from 'bullmq'
 
 import { env } from './config/env.js'
 import { closePool, pool } from './db/pool.js'
 import {
-  DISPATCH_QUEUE,
+  CAMPAIGN_QUEUE,
   QUEUE_PREFIX,
-  SEND_QUEUE,
+  SEND_JOB,
   createQueueConnection,
 } from './jobs/connection.js'
 import {
@@ -13,7 +13,7 @@ import {
   createSendProcessor,
   failAfterLastAttempt,
 } from './jobs/processors.js'
-import { createQueues, type DispatchJobData } from './jobs/queues.js'
+import { createQueues, type CampaignJobData } from './jobs/queues.js'
 import { createComposer } from './services/composer.js'
 import type { SendJobData } from './services/dispatch.js'
 import { createTokenCipher } from './services/encryption.js'
@@ -30,23 +30,17 @@ import { createUserRepository } from './services/users.js'
  *
  * Separate from the API so a deploy of one does not cut the other mid-flight,
  * and so a burst of sends never competes with a user's request for a
- * connection.
+ * connection. In development it is started on its own, with
+ * `npm run dev:worker`, only while sending is being worked on: left running, it
+ * spends Upstash's monthly command allowance polling an empty queue.
  */
-
-/** How often every scheduled or running campaign is planned again. */
-const DISPATCH_EVERY_MS = 15 * 60 * 1000
 
 /**
- * Upstash's free tier counts every command, 500 000 a month. BullMQ's defaults
- * — a blocking poll every 5 seconds and a stalled-job check every 30 — would
- * spend most of that on an idle queue. A delayed job still wakes the worker on
- * time: BullMQ signals it with a marker, not by the poll.
- *
- * The cost of the longer stalled interval: a job held by a worker that died is
- * recovered within five minutes instead of thirty seconds. The contact's claim
- * lasts ten, so nothing is lost by waiting.
+ * A job held by a worker that died is recovered within five minutes instead of
+ * BullMQ's default thirty seconds, which saves a stalled-job check every thirty
+ * seconds. The contact's claim lasts ten minutes, so nothing is lost by waiting.
  */
-const IDLE_TUNING = { drainDelay: 60, stalledInterval: 5 * 60 * 1000 }
+const STALLED_INTERVAL_MS = 5 * 60 * 1000
 
 const connection = createQueueConnection(env.redisUrl)
 const queues = createQueues(connection)
@@ -69,18 +63,33 @@ const processDispatch = createDispatchProcessor({
   enqueueSend: (job, delayMs) => queues.enqueueSend(job, delayMs),
 })
 
-const sendWorker = new Worker<SendJobData>(
-  SEND_QUEUE,
+function isSendJob(job: Job<CampaignJobData>): job is Job<SendJobData> {
+  return job.name === SEND_JOB
+}
+
+const worker = new Worker<CampaignJobData>(
+  CAMPAIGN_QUEUE,
   async (job) => {
-    await processSend(job.data)
+    if (isSendJob(job)) {
+      await processSend(job.data)
+      return
+    }
+
+    await processDispatch(job.data)
   },
-  // One at a time. The pace between messages is the point of this product, and
-  // the planner already spreads the jobs out.
-  { connection, prefix: QUEUE_PREFIX, concurrency: 1, ...IDLE_TUNING },
+  // One job at a time. The pace between messages is the point of this
+  // product, the planner already spreads the sends out, and a plan is a few
+  // queries that never waits long behind a send.
+  {
+    connection,
+    prefix: QUEUE_PREFIX,
+    concurrency: 1,
+    stalledInterval: STALLED_INTERVAL_MS,
+  },
 )
 
-sendWorker.on('failed', (job, err) => {
-  if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) {
+worker.on('failed', (job, err) => {
+  if (!job || !isSendJob(job) || job.attemptsMade < (job.opts.attempts ?? 1)) {
     return
   }
 
@@ -92,27 +101,11 @@ sendWorker.on('failed', (job, err) => {
   })
 })
 
-const dispatchWorker = new Worker<DispatchJobData>(
-  DISPATCH_QUEUE,
-  async (job) => {
-    await processDispatch(job.data)
-  },
-  { connection, prefix: QUEUE_PREFIX, ...IDLE_TUNING },
-)
+worker.on('error', (err) => {
+  console.error('Worker error', err.message)
+})
 
-for (const worker of [sendWorker, dispatchWorker]) {
-  worker.on('error', (err) => {
-    console.error('Worker error', err.message)
-  })
-}
-
-// Upserted, not added: every boot replaces the schedule instead of stacking a
-// second one beside it.
-await queues.dispatch.upsertJobScheduler(
-  'dispatch-all',
-  { every: DISPATCH_EVERY_MS },
-  { name: 'dispatch-all', data: {} },
-)
+await queues.scheduleDispatch()
 
 console.log(`Worker started [${env.nodeEnv}]`)
 
@@ -129,7 +122,7 @@ async function shutdown(signal: string): Promise<void> {
     process.exit(1)
   }, 30_000).unref()
 
-  await Promise.allSettled([sendWorker.close(), dispatchWorker.close()])
+  await worker.close()
   await Promise.allSettled([queues.close(), closePool()])
   await connection.quit().catch(() => undefined)
 

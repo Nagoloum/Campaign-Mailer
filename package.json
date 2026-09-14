@@ -18,7 +18,7 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently --names api,worker,web --prefix-colors cyan,yellow,magenta --kill-others \"npm:dev:backend\" \"npm:dev:worker\" \"npm:dev:frontend\"",
+    "dev": "concurrently --names api,web --prefix-colors cyan,magenta --kill-others \"npm:dev:backend\" \"npm:dev:frontend\"",
     "dev:backend": "npm run dev --workspace backend",
     "dev:worker": "npm run dev:worker --workspace backend",
     "dev:frontend": "npm run dev --workspace frontend",

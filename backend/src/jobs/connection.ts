@@ -24,11 +24,25 @@ export function createQueueConnection(url: string): Redis {
   return connection
 }
 
-/** Namespaces every BullMQ key, so the queues never collide with sessions. */
+/** Namespaces every BullMQ key, so the queue never collides with sessions. */
 export const QUEUE_PREFIX = 'cm'
 
-export const DISPATCH_QUEUE = 'campaign-dispatch'
-export const SEND_QUEUE = 'email-send'
+/**
+ * One queue, two kinds of job.
+ *
+ * Two queues cost two workers, and an idle BullMQ worker is not free on
+ * Upstash, where every command counts against 500 000 a month: measured on
+ * 14 September 2026, two idle workers spent 14 commands a minute, about
+ * 605 000 a month. BullMQ blocks for at most ten seconds whatever `drainDelay`
+ * says, so the only lever is the number of workers.
+ */
+export const CAMPAIGN_QUEUE = 'campaign'
+
+/** Plans one campaign, or every scheduled and running one when no id is given. */
+export const DISPATCH_JOB = 'dispatch'
+
+/** Sends one contact its message. */
+export const SEND_JOB = 'send'
 
 /** BullMQ refuses a custom job id containing a colon. */
 export function sendJobId(contactId: string): string {
