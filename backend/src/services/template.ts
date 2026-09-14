@@ -128,7 +128,26 @@ export function renderText(template: string, contact: TemplateContact): string {
  * is allowed to use markup. Only what comes from a contact is escaped.
  */
 export function renderHtml(template: string, contact: TemplateContact): string {
-  return render(template, contact, escapeHtml)
+  return neutraliseUnsafeLinks(render(template, contact, escapeHtml))
+}
+
+/**
+ * A link or source whose value starts with a script-carrying scheme.
+ *
+ * Escaping stops a CSV value from adding markup, but not from being a URL: a
+ * template with `<a href="{{company_name}}">` and a CSV row holding
+ * `javascript:…` would put a script link in the email. Mail clients mostly
+ * refuse such links; this makes sure the application never sends one.
+ *
+ * Every quantifier is bounded. A value cannot smuggle the scheme in as an
+ * entity (`&#106;avascript:`): its `&` is escaped to `&amp;` before this runs.
+ */
+const UNSAFE_LINK =
+  /(\s(?:href|src) {0,4}= {0,4}["']? {0,20})(?:javascript|vbscript|data) {0,4}:/gi
+
+/** Replaces the scheme with a fragment, which a client treats as a link to nowhere. */
+export function neutraliseUnsafeLinks(html: string): string {
+  return html.replace(UNSAFE_LINK, '$1#')
 }
 
 /**

@@ -54,7 +54,9 @@ export function assertAllowedType(contentType: string): string {
  */
 export function safeFileName(raw: string, extension: string): string {
   const base = raw
-    .replace(/[\r\n\0]/g, '')
+    // A double quote is dropped too: the name is quoted in Content-Disposition,
+    // and one inside it would end the value early.
+    .replace(/[\r\n\0"]/g, '')
     .replace(/[/\\]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
@@ -63,4 +65,32 @@ export function safeFileName(raw: string, extension: string): string {
   const withoutExtension = base.replace(/\.[A-Za-z0-9]{1,8}$/, '')
 
   return `${withoutExtension === '' ? 'piece-jointe' : withoutExtension}.${extension}`
+}
+
+/**
+ * The extension a stored key carries, which the upload took from an allowlisted
+ * type. `pdf` only if the key is somehow not one of ours.
+ */
+export function extensionOfKey(key: string): string {
+  const extension = key.slice(key.lastIndexOf('.') + 1).toLowerCase()
+  return [...ALLOWED.values()].includes(extension) ? extension : 'pdf'
+}
+
+/**
+ * A Content-Disposition value for a download, as RFC 6266 describes it.
+ *
+ * Two names: a plain ASCII one every client understands, and the exact name
+ * percent-encoded in UTF-8 for the clients that read it, so "Amélie.pdf"
+ * downloads with its accent. The ASCII one has every character outside
+ * printable ASCII, and any quote or backslash, replaced.
+ */
+export function contentDisposition(name: string): string {
+  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, '_')
+  // encodeURIComponent leaves ' ( ) * alone; RFC 5987 does not allow them bare.
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  )
+
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`
 }

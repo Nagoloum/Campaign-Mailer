@@ -1,7 +1,47 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { AttachmentRejected, assertAllowedType, safeFileName } from './attachmentRules.js'
+import {
+  AttachmentRejected,
+  assertAllowedType,
+  contentDisposition,
+  extensionOfKey,
+  safeFileName,
+} from './attachmentRules.js'
+
+describe('contentDisposition', () => {
+  it('sends an ASCII name and the exact UTF-8 name', () => {
+    assert.equal(
+      contentDisposition('CV Amélie.pdf'),
+      `attachment; filename="CV Am_lie.pdf"; filename*=UTF-8''CV%20Am%C3%A9lie.pdf`,
+    )
+  })
+
+  it('never lets a quote or a backslash end the quoted name', () => {
+    const header = contentDisposition('a"b\\c.pdf')
+    const quoted = /filename="([^"]*)"/.exec(header)?.[1]
+
+    assert.equal(quoted, 'a_b_c.pdf')
+  })
+
+  it('encodes the characters RFC 5987 does not allow bare', () => {
+    assert.ok(
+      contentDisposition("l'offre (1)*.pdf").endsWith('l%27offre%20%281%29%2A.pdf'),
+    )
+  })
+})
+
+describe('extensionOfKey', () => {
+  it('reads the extension the upload stored', () => {
+    assert.equal(extensionOfKey('campaigns/c/0000.docx'), 'docx')
+    assert.equal(extensionOfKey('campaigns/c/0000.pdf'), 'pdf')
+  })
+
+  it('falls back to pdf for a key that is not one of ours', () => {
+    assert.equal(extensionOfKey('campaigns/c/0000.exe'), 'pdf')
+    assert.equal(extensionOfKey('no-extension'), 'pdf')
+  })
+})
 
 describe('assertAllowedType', () => {
   it('accepts a PDF and a Word document', () => {
@@ -64,6 +104,10 @@ describe('safeFileName', () => {
 
     assert.ok(!name.includes('\n'))
     assert.ok(!name.includes('\r'))
+  })
+
+  it('strips a double quote, which would end a quoted header value', () => {
+    assert.equal(safeFileName('mon "super" cv.pdf', 'pdf'), 'mon super cv.pdf')
   })
 
   it('strips a null byte', () => {

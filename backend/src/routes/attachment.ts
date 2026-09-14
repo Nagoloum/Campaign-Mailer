@@ -4,6 +4,8 @@ import { isUuid, requireAuth } from '../middleware/auth.js'
 import {
   AttachmentRejected,
   MAX_ATTACHMENT_BYTES,
+  contentDisposition,
+  extensionOfKey,
   safeFileName,
 } from '../services/attachmentRules.js'
 import { canEditContent } from '../services/campaignState.js'
@@ -17,6 +19,24 @@ import { deleteAttachment, getAttachment, putAttachment } from '../services/stor
  * post a File straight through fetch, so multipart buys nothing here and costs
  * a parser dependency; the filename travels in a header instead.
  */
+/**
+ * The filename header, decoded, or the default name.
+ *
+ * The client URI-encodes it; a stray `%` from any other client made
+ * decodeURIComponent throw, which answered 500 for what is a naming detail.
+ */
+function decodeFileName(header: string | undefined): string {
+  if (!header) {
+    return 'piece-jointe'
+  }
+
+  try {
+    return decodeURIComponent(header)
+  } catch {
+    return 'piece-jointe'
+  }
+}
+
 export function createAttachmentRouter(campaigns: CampaignRepository): Router {
   const router = Router({ mergeParams: true })
 
@@ -52,7 +72,7 @@ export function createAttachmentRouter(campaigns: CampaignRepository): Router {
 
         // The header is URI-encoded by the client, because a filename with an
         // accent is not a valid header value as it stands.
-        const rawName = decodeURIComponent(req.get('x-file-name') ?? 'piece-jointe')
+        const rawName = decodeFileName(req.get('x-file-name'))
         const contentType = req.get('content-type') ?? ''
 
         let stored
@@ -106,12 +126,16 @@ export function createAttachmentRouter(campaigns: CampaignRepository): Router {
       }
 
       const body = await getAttachment(campaign.attachment_key)
-      const name = safeFileName(campaign.attachment_name ?? 'piece-jointe', 'pdf')
+      // The extension from the stored key, not a fixed "pdf": a Word document
+      // used to download named .pdf and open as a broken file.
+      const name = safeFileName(
+        campaign.attachment_name ?? 'piece-jointe',
+        extensionOfKey(campaign.attachment_key),
+      )
 
       // attachment, not inline: a PDF rendered in the tab would run in this
-      // origin, and the name is quoted after the same sanitising the upload
-      // applied.
-      res.setHeader('content-disposition', `attachment; filename="${name}"`)
+      // origin.
+      res.setHeader('content-disposition', contentDisposition(name))
       res.setHeader('content-type', 'application/octet-stream')
       res.send(body)
     })().catch(next)
