@@ -19,6 +19,7 @@ import {
   canTransition,
   type CampaignStatus,
 } from '../services/campaignState.js'
+import type { AuditAction, AuditLog } from '../services/audit.js'
 import type { CampaignRepository, CampaignRow } from '../services/campaigns.js'
 import { renderPreview, type PreviewSource } from '../services/preview.js'
 
@@ -33,6 +34,8 @@ export interface CampaignRouterOptions {
    * interface can say when the ceiling, not a fault, is what holds the sending.
    */
   accountDailyLimit?: number | undefined
+  /** Records who started, paused or resumed which campaign. */
+  audit?: AuditLog | undefined
 }
 
 /**
@@ -208,6 +211,7 @@ export function createCampaignRouter(
       from: readonly CampaignStatus[]
       to: CampaignStatus
       dispatch: boolean
+      action: AuditAction
       precondition?: (campaign: CampaignRow) => Promise<string | null>
     },
   ) => {
@@ -251,12 +255,16 @@ export function createCampaignRouter(
           await dispatchSoon(updated.id)
         }
 
+        // Only a move that happened is recorded; a refused one changed nothing.
+        await options.audit?.record(userId(req), move.action, updated.id)
+
         res.json({ campaign: await withSending(updated) })
       })().catch(next)
     })
   }
 
   statusRoute('/:id/start', {
+    action: 'campaign.started',
     from: ['draft'],
     to: 'scheduled',
     dispatch: true,
@@ -275,6 +283,7 @@ export function createCampaignRouter(
   })
 
   statusRoute('/:id/pause', {
+    action: 'campaign.paused',
     from: ['scheduled', 'running'],
     to: 'paused',
     // Nothing to plan. Jobs already queued find the campaign paused when they
@@ -283,6 +292,7 @@ export function createCampaignRouter(
   })
 
   statusRoute('/:id/resume', {
+    action: 'campaign.resumed',
     from: ['paused'],
     to: 'running',
     dispatch: true,

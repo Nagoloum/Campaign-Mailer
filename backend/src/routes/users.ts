@@ -5,11 +5,14 @@ import { SESSION_COOKIE_NAME } from '../config/session.js'
 import { requireAuth } from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import type { DeletionReport } from '../services/accountDeletion.js'
+import type { AuditLog } from '../services/audit.js'
 import { contactsToCsv, type UserExport } from '../services/userExport.js'
 
 export interface UsersRouterDeps {
   deleteAccount: (userId: string) => Promise<DeletionReport>
   exportUser: (userId: string) => Promise<UserExport | null>
+  /** Records each export and each deletion. */
+  audit?: AuditLog | undefined
 }
 
 /**
@@ -24,6 +27,7 @@ const deleteAccountSchema = z
 export function createUsersRouter({
   deleteAccount,
   exportUser,
+  audit,
 }: UsersRouterDeps): Router {
   const router = Router()
 
@@ -49,6 +53,12 @@ export function createUsersRouter({
       }
 
       const report = await deleteAccount(user.id)
+
+      if (report.deleted) {
+        // After the fact, and without a foreign key: the record of the deletion
+        // outlives the account it describes.
+        await audit?.record(user.id, 'account.deleted')
+      }
 
       // The session now points at an account that no longer exists. It is
       // destroyed here rather than left to fail on the next request.
@@ -91,6 +101,8 @@ export function createUsersRouter({
         res.status(404).json({ error: 'Account not found' })
         return
       }
+
+      await audit?.record(user.id, 'account.exported')
 
       const day = data.exportedAt.slice(0, 10)
       res.setHeader('cache-control', 'no-store')

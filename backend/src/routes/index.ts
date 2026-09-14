@@ -5,6 +5,7 @@ import { pool } from '../db/pool.js'
 import { requireAuth } from '../middleware/auth.js'
 import { createCampaignRepository } from '../services/campaigns.js'
 import { deleteAccount } from '../services/accountDeletion.js'
+import { createAuditLog } from '../services/audit.js'
 import { createContactRepository } from '../services/contacts.js'
 import { createTokenCipher } from '../services/encryption.js'
 import { createGoogleTokenRevoker } from '../services/googleRevoke.js'
@@ -50,6 +51,8 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
 
   apiRouter.use('/auth', authRouter)
 
+  const audit = createAuditLog(pool)
+
   const deletion = {
     pool,
     cipher: createTokenCipher(env.encryptionKey),
@@ -61,6 +64,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
     createUsersRouter({
       deleteAccount: (userId) => deleteAccount(deletion, userId),
       exportUser: (userId) => buildUserExport(pool, userId),
+      audit,
     }),
   )
   const campaignRepository = createCampaignRepository(pool)
@@ -70,6 +74,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
     createCampaignRouter(campaignRepository, {
       requestDispatch: deps.requestDispatch,
       accountDailyLimit: env.gmailDailyLimit,
+      audit,
     }),
   )
   apiRouter.use('/campaigns/:id/attachment', createAttachmentRouter(campaignRepository))

@@ -71,6 +71,7 @@ let dispatched: string[] = []
 let dispatchFails = false
 /** Simulates another request moving the campaign between the read and the update. */
 let raceLost = false
+let audited: string[] = []
 
 const repository: CampaignRepository = {
   belongsTo: () => Promise.resolve(true),
@@ -137,6 +138,12 @@ before(async () => {
     '/campaigns',
     createCampaignRouter(repository, {
       accountDailyLimit: 450,
+      audit: {
+        record: (_actor, action, target) => {
+          audited.push(`${action}:${String(target)}`)
+          return Promise.resolve()
+        },
+      },
       requestDispatch: (campaignId) => {
         if (dispatchFails) {
           return Promise.reject(new Error('Redis unreachable'))
@@ -175,6 +182,7 @@ beforeEach(() => {
   dispatched = []
   dispatchFails = false
   raceLost = false
+  audited = []
 })
 
 const send = (path: string, init: RequestInit = {}) =>
@@ -499,6 +507,29 @@ describe('starting, pausing and resuming', () => {
       assert.equal((await post('resume')).status, 409)
     })
   }
+
+  it('records who started, paused and resumed which campaign', async () => {
+    stored = ready()
+
+    await post('start')
+    await post('pause')
+    await post('resume')
+
+    assert.deepEqual(audited, [
+      `campaign.started:${CAMPAIGN}`,
+      `campaign.paused:${CAMPAIGN}`,
+      `campaign.resumed:${CAMPAIGN}`,
+    ])
+  })
+
+  it('records nothing for a move that was refused', async () => {
+    stored = row({ status: 'completed' })
+
+    await post('start')
+    await post('pause')
+
+    assert.deepEqual(audited, [])
+  })
 
   it('answers 404 for another user’s campaign, and moves nothing', async () => {
     stored = row({ ...ready(), user_id: 'bbbbbbbb-2222-4222-8222-222222222222' })
