@@ -23,7 +23,7 @@ export function configurePassport(): typeof passport {
 
   const handleGoogleProfile = createGoogleProfileHandler({
     users,
-    cipher: createTokenCipher(env.encryptionKey),
+    cipher: createTokenCipher(env.encryptionKey, env.previousEncryptionKeys),
   })
 
   // Only the id goes into the session. Storing the row would put an email, and

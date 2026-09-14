@@ -10,6 +10,11 @@ import crypto from 'node:crypto'
  * The bundle is `v1.<iv>.<tag>.<ciphertext>`, each part base64url. The version
  * is there so the algorithm or the key derivation can change later without
  * having to guess what an existing row was encrypted with.
+ *
+ * Key rotation (docs/security.md): the cipher always encrypts with the current
+ * key, and decrypts with the current key or any previous one. GCM's tag tells a
+ * wrong key from a right one, so trying each in turn is safe, and during a
+ * rotation every stored token stays readable until it has been re-encrypted.
  */
 
 const VERSION = 'v1'
@@ -22,12 +27,7 @@ export interface TokenCipher {
   decrypt(bundle: string): string
 }
 
-/**
- * @param keyHex 32 bytes, hex encoded, so 64 characters.
- *   Generate one with:
- *   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
- */
-export function createTokenCipher(keyHex: string): TokenCipher {
+function parseKey(keyHex: string): Buffer {
   if (!/^[0-9a-fA-F]*$/.test(keyHex)) {
     throw new Error('Encryption key must be hex encoded')
   }
@@ -38,7 +38,35 @@ export function createTokenCipher(keyHex: string): TokenCipher {
     )
   }
 
-  const key = Buffer.from(keyHex, 'hex')
+  return Buffer.from(keyHex, 'hex')
+}
+
+function open(key: Buffer, ivPart: string, tagPart: string, bodyPart: string): string {
+  const decipher = crypto.createDecipheriv(
+    ALGORITHM,
+    key,
+    Buffer.from(ivPart, 'base64url'),
+  )
+  decipher.setAuthTag(Buffer.from(tagPart, 'base64url'))
+
+  return Buffer.concat([
+    decipher.update(Buffer.from(bodyPart, 'base64url')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+/**
+ * @param keyHex 32 bytes, hex encoded, so 64 characters. Encrypts and decrypts.
+ *   Generate one with:
+ *   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ * @param previousKeysHex keys retired by a rotation. They only decrypt.
+ */
+export function createTokenCipher(
+  keyHex: string,
+  previousKeysHex: readonly string[] = [],
+): TokenCipher {
+  const key = parseKey(keyHex)
+  const readable = [key, ...previousKeysHex.map(parseKey)]
 
   return {
     encrypt(plaintext: string): string {
@@ -65,24 +93,18 @@ export function createTokenCipher(keyHex: string): TokenCipher {
 
       const [, ivPart, tagPart, bodyPart] = parts as [string, string, string, string]
 
-      try {
-        const decipher = crypto.createDecipheriv(
-          ALGORITHM,
-          key,
-          Buffer.from(ivPart, 'base64url'),
-        )
-        decipher.setAuthTag(Buffer.from(tagPart, 'base64url'))
-
-        return Buffer.concat([
-          decipher.update(Buffer.from(bodyPart, 'base64url')),
-          decipher.final(),
-        ]).toString('utf8')
-      } catch {
-        // The underlying error carries no secret, but it does distinguish a
-        // bad tag from a bad key, which is a detail an attacker can use and an
-        // operator cannot. One message for every failure.
-        throw new Error('Unable to decrypt: wrong key, or the value was altered')
+      for (const candidate of readable) {
+        try {
+          return open(candidate, ivPart, tagPart, bodyPart)
+        } catch {
+          // The tag did not verify under this key; try the next one.
+        }
       }
+
+      // The underlying error carries no secret, but it does distinguish a bad
+      // tag from a bad key, which is a detail an attacker can use and an
+      // operator cannot. One message for every failure.
+      throw new Error('Unable to decrypt: wrong key, or the value was altered')
     },
   }
 }

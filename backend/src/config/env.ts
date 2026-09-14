@@ -86,6 +86,14 @@ export const env = {
   // process that starts without it would store readable refresh tokens.
   encryptionKey: required('ENCRYPTION_KEY'),
 
+  // Keys retired by a rotation, comma separated. They decrypt and never
+  // encrypt, and are removed once the rotation script has run. Empty outside a
+  // rotation. See docs/security.md.
+  previousEncryptionKeys: (process.env.ENCRYPTION_KEY_PREVIOUS ?? '')
+    .split(',')
+    .map((key) => key.trim())
+    .filter((key) => key !== ''),
+
   // The pooled Neon host. Migrations use DATABASE_DIRECT_URL instead.
   databaseUrl: required('DATABASE_URL'),
 

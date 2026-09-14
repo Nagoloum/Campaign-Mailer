@@ -62,7 +62,7 @@ const processSend = createSendProcessor({
   gateway: createGmailGateway(),
   getAccessToken: createAccessTokenProvider({
     auth: createUserRepository(pool),
-    cipher: createTokenCipher(env.encryptionKey),
+    cipher: createTokenCipher(env.encryptionKey, env.previousEncryptionKeys),
     endpoint: createGoogleTokenEndpoint(env.google),
   }),
   compose: createComposer({ pool, readAttachment: getAttachment }),

@@ -55,7 +55,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
 
   const deletion = {
     pool,
-    cipher: createTokenCipher(env.encryptionKey),
+    cipher: createTokenCipher(env.encryptionKey, env.previousEncryptionKeys),
     revokeGoogleToken: createGoogleTokenRevoker(),
     deleteCampaignFiles,
   }
