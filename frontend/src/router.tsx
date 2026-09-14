@@ -5,6 +5,9 @@ import { RequireAuth } from '@/components/RequireAuth'
 import { Account } from '@/pages/Account'
 import { CampaignEditor } from '@/pages/CampaignEditor'
 import { CampaignNew } from '@/pages/CampaignNew'
+import { LegalNotice } from '@/pages/legal/LegalNotice'
+import { Privacy } from '@/pages/legal/Privacy'
+import { Terms } from '@/pages/legal/Terms'
 import { Dashboard } from '@/pages/Dashboard'
 import { Login } from '@/pages/Login'
 import { NotFound } from '@/pages/NotFound'
@@ -18,6 +21,10 @@ export const router = createBrowserRouter([
     path: '/login',
     element: <Login />,
   },
+  // Public: someone deciding whether to sign in must be able to read them.
+  { path: '/legal/mentions', element: <LegalNotice /> },
+  { path: '/legal/cgu', element: <Terms /> },
+  { path: '/legal/confidentialite', element: <Privacy /> },
   {
     element: <RequireAuth />,
     children: [

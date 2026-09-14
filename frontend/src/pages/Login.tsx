@@ -3,6 +3,7 @@ import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { FullPageSpinner } from '@/components/FullPageSpinner'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
+import { LegalNav } from '@/components/LegalLayout'
 import { ServerUnreachable } from '@/components/ServerUnreachable'
 import { GOOGLE_PERMISSIONS_URL, type DeletionReport } from '@/services/account'
 
@@ -80,6 +81,10 @@ export function Login() {
         L’application demande l’autorisation d’envoyer des e-mails en votre nom. Elle ne
         peut pas lire votre boîte de réception.
       </p>
+
+      <footer className="mt-10 border-t border-border pt-4">
+        <LegalNav />
+      </footer>
     </main>
   )
 }

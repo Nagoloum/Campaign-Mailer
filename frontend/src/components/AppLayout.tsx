@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 
 import { useAuth } from '@/auth/useAuth'
 
+import { LegalNav } from './LegalLayout'
 import { SignOutButton } from './SignOutButton'
 
 const NAV_ITEMS = [
@@ -57,6 +58,10 @@ export function AppLayout() {
       <main className="mx-auto max-w-5xl px-4 py-8">
         <Outlet />
       </main>
+
+      <footer className="mx-auto max-w-5xl border-t border-border px-4 py-5">
+        <LegalNav />
+      </footer>
     </div>
   )
 }
