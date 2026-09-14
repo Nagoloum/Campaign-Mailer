@@ -5,6 +5,8 @@ import { pool } from '../db/pool.js'
 import { requireAuth } from '../middleware/auth.js'
 import { createCampaignRepository } from '../services/campaigns.js'
 import { createContactRepository } from '../services/contacts.js'
+import { createLogExportRepository } from '../services/logExport.js'
+import { createStatsRepository } from '../services/stats.js'
 import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
 import { TEMPLATE_VARIABLES } from '../services/template.js'
 
@@ -12,6 +14,9 @@ import { createAttachmentRouter } from './attachment.js'
 import { authRouter } from './auth.js'
 import { createCampaignRouter } from './campaigns.js'
 import { createContactRouter } from './contacts.js'
+import { createDashboardRouter } from './dashboard.js'
+import { createLogExportRouter } from './logExport.js'
+import { createStatsRouter } from './stats.js'
 
 export interface ApiRouterDeps {
   /**
@@ -48,6 +53,27 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
     }),
   )
   apiRouter.use('/campaigns/:id/attachment', createAttachmentRouter(campaignRepository))
+  const statsRepository = createStatsRepository(pool)
+
+  apiRouter.use(
+    '/campaigns/:id/stats',
+    createStatsRouter({ campaigns: campaignRepository, stats: statsRepository }),
+  )
+  apiRouter.use(
+    '/campaigns/:id/logs/export',
+    createLogExportRouter({
+      campaigns: campaignRepository,
+      logs: createLogExportRepository(pool),
+    }),
+  )
+  apiRouter.use(
+    '/dashboard',
+    createDashboardRouter({
+      campaigns: campaignRepository,
+      stats: statsRepository,
+      accountDailyLimit: env.gmailDailyLimit,
+    }),
+  )
   apiRouter.use(
     '/campaigns/:id/contacts',
     // A batch of rows is larger than the default body limit, and raising it
