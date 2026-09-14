@@ -15,6 +15,34 @@ function humanSize(bytes: number): string {
     : `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
 }
 
+/**
+ * The error the API gave, or a plain one.
+ *
+ * The body is not always JSON: a proxy refusing a large file answers with an
+ * HTML page, and parsing it threw inside the event handler, where nobody saw
+ * it and no message appeared at all.
+ */
+function errorMessage(request: XMLHttpRequest): string {
+  if (request.status === 413) {
+    return 'Le fichier dépasse 10 Mo.'
+  }
+
+  if (request.status === 401) {
+    return 'Votre session a expiré. Reconnectez-vous, puis réessayez.'
+  }
+
+  try {
+    const body = JSON.parse(request.responseText) as { error?: unknown }
+    if (typeof body.error === 'string') {
+      return body.error
+    }
+  } catch {
+    // Not JSON; fall through to the plain message.
+  }
+
+  return 'L’envoi a échoué. Réessayez dans un instant.'
+}
+
 export function AttachmentPanel({
   campaignId,
   attachmentName,
@@ -68,10 +96,7 @@ export function AttachmentPanel({
         return
       }
 
-      const message =
-        (JSON.parse(request.responseText || '{}') as { error?: string }).error ??
-        'L’envoi a échoué.'
-      toast.error(message)
+      toast.error(errorMessage(request))
     })
 
     request.addEventListener('error', () => {

@@ -19,7 +19,10 @@ import {
 } from '@/services/campaigns'
 
 type Load =
-  { state: 'loading' } | { state: 'ready'; campaign: Campaign } | { state: 'missing' }
+  | { state: 'loading' }
+  | { state: 'ready'; campaign: Campaign }
+  | { state: 'missing' }
+  | { state: 'failed' }
 
 interface Draft {
   subject: string
@@ -53,8 +56,15 @@ export function CampaignEditor() {
         bodyText: campaign.bodyText ?? '',
       })
       setDirty(false)
-    } catch {
-      setLoad({ state: 'missing' })
+    } catch (err) {
+      // Only a 404 means the campaign is gone. An unreachable server or a 500
+      // said "introuvable" would send the user looking for a deleted campaign
+      // that is still there.
+      setLoad(
+        err instanceof ApiError && err.status === 404
+          ? { state: 'missing' }
+          : { state: 'failed' },
+      )
     }
   }, [id])
 
@@ -170,6 +180,34 @@ export function CampaignEditor() {
       <p role="status" className="text-sm text-ink-muted">
         Chargement…
       </p>
+    )
+  }
+
+  if (load.state === 'failed') {
+    return (
+      <div role="alert">
+        <h1 className="text-xl font-semibold tracking-tight">
+          Impossible de charger la campagne
+        </h1>
+        <p className="mt-2 text-sm text-ink-muted">
+          Le serveur n’a pas répondu. Vérifiez votre connexion, puis réessayez.
+        </p>
+        <div className="mt-4 flex items-center gap-4 text-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setLoad({ state: 'loading' })
+              void refresh()
+            }}
+            className="rounded-lg bg-accent px-3 py-1.5 font-medium text-accent-ink transition-opacity hover:opacity-90"
+          >
+            Réessayer
+          </button>
+          <Link to="/" className="text-ink-muted hover:text-ink">
+            Retour aux campagnes
+          </Link>
+        </div>
+      </div>
     )
   }
 

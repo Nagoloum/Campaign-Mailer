@@ -35,9 +35,11 @@ export function ContactTable({
   const [status, setStatus] = useState<ContactStatus | ''>('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setFailed(false)
 
     try {
       const result = await contactsApi.list(campaignId, {
@@ -50,7 +52,9 @@ export function ContactTable({
       setContacts(result.contacts)
       setTotal(result.total)
     } catch {
-      toast.error('Impossible de charger les contacts.')
+      // Said in place rather than in a toast: left empty, the table would read
+      // "no contacts, import a file", and the user would import them twice.
+      setFailed(true)
     } finally {
       setLoading(false)
     }
@@ -126,7 +130,23 @@ export function ContactTable({
         </p>
       )}
 
-      {!loading && contacts.length === 0 && (
+      {!loading && failed && (
+        <div
+          role="alert"
+          className="mt-3 rounded-xl border border-border px-4 py-3 text-sm"
+        >
+          <p>Les contacts n’ont pas pu être chargés.</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-1 text-accent underline"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {!loading && !failed && contacts.length === 0 && (
         <p className="mt-3 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-ink-muted">
           {total === 0 && !search && !status
             ? 'Aucun contact. Importez un fichier CSV pour commencer.'
@@ -134,7 +154,7 @@ export function ContactTable({
         </p>
       )}
 
-      {!loading && contacts.length > 0 && (
+      {!loading && !failed && contacts.length > 0 && (
         <>
           <div className="mt-3 overflow-x-auto rounded-xl border border-border">
             <table className="w-full min-w-2xl text-left text-sm">
