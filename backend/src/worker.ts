@@ -8,6 +8,7 @@ import {
   SEND_JOB,
   createQueueConnection,
 } from './jobs/connection.js'
+import { createIdleController, readQueueActivity } from './jobs/idleSleep.js'
 import {
   createDispatchProcessor,
   createSendProcessor,
@@ -30,10 +31,20 @@ import { createUserRepository } from './services/users.js'
  *
  * Separate from the API so a deploy of one does not cut the other mid-flight,
  * and so a burst of sends never competes with a user's request for a
- * connection. In development it is started on its own, with
- * `npm run dev:worker`, only while sending is being worked on: left running, it
- * spends Upstash's monthly command allowance polling an empty queue.
+ * connection. It sleeps while nothing is due — see jobs/idleSleep.ts — so it
+ * can run around the clock within Upstash's free allowance.
  */
+
+/** How often every scheduled or running campaign is planned again. */
+const DISPATCH_EVERY_MS = 15 * 60 * 1000
+
+/**
+ * How often a sleeping worker looks for work, and how far ahead it looks.
+ * The horizon is longer than the interval so a job due just after one check is
+ * caught by that check rather than the next.
+ */
+const IDLE_CHECK_EVERY_MS = 2 * 60 * 1000
+const IDLE_HORIZON_MS = 2.5 * 60 * 1000
 
 /**
  * A job held by a worker that died is recovered within five minutes instead of
@@ -105,7 +116,49 @@ worker.on('error', (err) => {
   console.error('Worker error', err.message)
 })
 
-await queues.scheduleDispatch()
+const idle = createIdleController({
+  worker,
+  readActivity: () => readQueueActivity(queues.queue),
+  horizonMs: IDLE_HORIZON_MS,
+})
+
+function checkIdle(): void {
+  idle.check().catch((err: unknown) => {
+    // A failed check leaves the worker as it was. Awake costs commands; asleep
+    // costs latency; neither loses a send, and the next check tries again.
+    console.error('Idle check failed', err instanceof Error ? err.message : String(err))
+  })
+}
+
+/**
+ * Plans every campaign from this process rather than from a repeatable job.
+ *
+ * A job scheduler lives in Redis, so it would wake the sleeping worker every
+ * fifteen minutes just to run a plan that usually finds nothing. Called here,
+ * the plan only touches Redis when it queues a send, and the check that follows
+ * wakes the worker for exactly that case.
+ */
+function planAll(): void {
+  processDispatch({})
+    .then(() => {
+      checkIdle()
+    })
+    .catch((err: unknown) => {
+      console.error(
+        'Scheduled dispatch failed',
+        err instanceof Error ? err.message : String(err),
+      )
+    })
+}
+
+// Earlier versions scheduled the plan as a repeatable job. Left in Redis, it
+// would keep waking the worker; removing a scheduler that is not there is a
+// no-op.
+await queues.queue.removeJobScheduler('dispatch-all')
+
+const dispatchTimer = setInterval(planAll, DISPATCH_EVERY_MS)
+const idleTimer = setInterval(checkIdle, IDLE_CHECK_EVERY_MS)
+planAll()
 
 console.log(`Worker started [${env.nodeEnv}]`)
 
@@ -116,6 +169,9 @@ console.log(`Worker started [${env.nodeEnv}]`)
  */
 async function shutdown(signal: string): Promise<void> {
   console.log(`${signal} received, finishing the job in hand`)
+
+  clearInterval(dispatchTimer)
+  clearInterval(idleTimer)
 
   setTimeout(() => {
     console.error('Forced exit after shutdown timeout')

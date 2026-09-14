@@ -27,6 +27,17 @@ two idle workers measured 14 commands a minute (about 605 000 a month) and one
 measured 12 (about 518 000). One queue helps; it does not, alone, bring an
 always-on worker under the allowance.
 
+What does is sleep. The worker pauses whenever nothing is waiting, nothing is
+running and no delayed job falls due within two and a half minutes, and a check
+every two minutes wakes it. Asleep it measured 1 command a minute, about 43 000
+a month; a job queued while it slept started 89 seconds later. The
+fifteen-minute plan runs from a timer in the worker process rather than as a
+repeatable job, so it touches Redis only when it queues a send.
+
+Sleep costs latency and nothing else. A send due while the worker sleeps starts
+at most one check late, and the claim, the retries and the ceiling do not depend
+on when a job starts.
+
 Planning and sending are separate because they fail differently. Planning is
 cheap, idempotent and can be repeated; sending is the irreversible act.
 

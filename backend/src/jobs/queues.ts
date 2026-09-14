@@ -15,9 +15,6 @@ import {
 export const SEND_ATTEMPTS = 3
 export const SEND_BACKOFF_MS = 60_000
 
-/** How often every scheduled or running campaign is planned again. */
-export const DISPATCH_EVERY_MS = 15 * 60 * 1000
-
 export interface DispatchJobData {
   /** One campaign, when a user starts or resumes; all of them on the schedule. */
   campaignId?: string | undefined
@@ -55,15 +52,6 @@ export function createQueues(connection: Redis) {
 
     async requestDispatch(campaignId: string): Promise<void> {
       await queue.add(DISPATCH_JOB, { campaignId })
-    },
-
-    /** Upserted, not added: every boot replaces the schedule instead of stacking one. */
-    async scheduleDispatch(): Promise<void> {
-      await queue.upsertJobScheduler(
-        'dispatch-all',
-        { every: DISPATCH_EVERY_MS },
-        { name: DISPATCH_JOB, data: {} },
-      )
     },
 
     async close(): Promise<void> {
