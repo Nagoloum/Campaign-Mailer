@@ -12,7 +12,7 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 4 — the send engine, complete.** A user signs in with Google, writes a campaign, imports contacts, attaches a CV, sets the pace, and launches it. A separate worker process plans each campaign in its own time zone and sends one message at a time from the user's Gmail account, under a daily ceiling, without ever sending a contact the same email twice. The real test (#67) passed on 14 September 2026: five emails to five controlled addresses, all accepted by Gmail, eleven seconds apart, none sent twice.
+**Phase 5 — dashboard and statistics, awaiting review.** The home page shows how much of the account's 24-hour sending ceiling is spent and what goes out next; each launched campaign has its statistics, a chart of sends per day and a CSV export of its log. Phase 4, the send engine, is complete: A user signs in with Google, writes a campaign, imports contacts, attaches a CV, sets the pace, and launches it. A separate worker process plans each campaign in its own time zone and sends one message at a time from the user's Gmail account, under a daily ceiling, without ever sending a contact the same email twice. The real test (#67) passed on 14 September 2026: five emails to five controlled addresses, all accepted by Gmail, eleven seconds apart, none sent twice.
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 

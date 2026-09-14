@@ -3,7 +3,7 @@
 Plan d'exécution de A à Z, du repo vide jusqu'au lancement public.
 Référence : `Cahier des Charges — Campaign Mailer v1.0`.
 
-- **Statut** : Phases 0 à 4 terminées. Phase 4 validée par le propriétaire le 14 septembre 2026, après le test réel (#67 : 5 emails sur 5 acceptés par Gmail, espacés de 11 s, aucun doublon). Reste ouvert en Phase 0 : les deux clés Cloudflare R2 et la demande de vérification Google.
+- **Statut** : Phases 0 à 4 terminées. Phase 5 : tous les tickets livrés (#68 à #77), en attente de la revue du propriétaire. Phase 4 validée par le propriétaire le 14 septembre 2026, après le test réel (#67 : 5 emails sur 5 acceptés par Gmail, espacés de 11 s, aucun doublon). Reste ouvert en Phase 0 : les deux clés Cloudflare R2 et la demande de vérification Google.
 - **Dernière mise à jour** : 12 septembre 2026
 - **Cadence de révision** : fin de chaque phase
 
