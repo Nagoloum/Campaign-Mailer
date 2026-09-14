@@ -2,7 +2,9 @@ import crypto from 'node:crypto'
 
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
@@ -90,4 +92,41 @@ export async function getAttachment(key: string): Promise<Buffer> {
 
 export async function deleteAttachment(key: string): Promise<void> {
   await client.send(new DeleteObjectCommand({ Bucket: env.storage.bucket, Key: key }))
+}
+
+/**
+ * Deletes every object stored under a campaign.
+ *
+ * By prefix rather than by the one key the campaign row points at: a replaced
+ * attachment whose deletion failed at the time is still under the same prefix,
+ * and an account deletion is the moment it must go too.
+ */
+export async function deleteCampaignFiles(campaignId: string): Promise<void> {
+  const prefix = `campaigns/${campaignId}/`
+  let continuationToken: string | undefined
+
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: env.storage.bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    )
+
+    const objects = (page.Contents ?? []).flatMap((object) =>
+      object.Key ? [{ Key: object.Key }] : [],
+    )
+
+    if (objects.length > 0) {
+      await client.send(
+        new DeleteObjectsCommand({
+          Bucket: env.storage.bucket,
+          Delete: { Objects: objects, Quiet: true },
+        }),
+      )
+    }
+
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined
+  } while (continuationToken)
 }

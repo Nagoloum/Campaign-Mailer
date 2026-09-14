@@ -4,7 +4,11 @@ import { env } from '../config/env.js'
 import { pool } from '../db/pool.js'
 import { requireAuth } from '../middleware/auth.js'
 import { createCampaignRepository } from '../services/campaigns.js'
+import { deleteAccount } from '../services/accountDeletion.js'
 import { createContactRepository } from '../services/contacts.js'
+import { createTokenCipher } from '../services/encryption.js'
+import { createGoogleTokenRevoker } from '../services/googleRevoke.js'
+import { deleteCampaignFiles } from '../services/storage.js'
 import { createLogExportRepository } from '../services/logExport.js'
 import { createStatsRepository } from '../services/stats.js'
 import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
@@ -17,6 +21,7 @@ import { createContactRouter } from './contacts.js'
 import { createDashboardRouter } from './dashboard.js'
 import { createLogExportRouter } from './logExport.js'
 import { createStatsRouter } from './stats.js'
+import { createUsersRouter } from './users.js'
 
 export interface ApiRouterDeps {
   /**
@@ -43,6 +48,17 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
   })
 
   apiRouter.use('/auth', authRouter)
+
+  const deletion = {
+    pool,
+    cipher: createTokenCipher(env.encryptionKey),
+    revokeGoogleToken: createGoogleTokenRevoker(),
+    deleteCampaignFiles,
+  }
+  apiRouter.use(
+    '/users',
+    createUsersRouter({ deleteAccount: (userId) => deleteAccount(deletion, userId) }),
+  )
   const campaignRepository = createCampaignRepository(pool)
 
   apiRouter.use(
