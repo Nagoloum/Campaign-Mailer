@@ -8,6 +8,7 @@ import {
   SEND_JOB,
   createQueueConnection,
 } from './jobs/connection.js'
+import { HEARTBEAT_EVERY_MS, writeHeartbeat } from './jobs/heartbeat.js'
 import { createIdleController, readQueueActivity } from './jobs/idleSleep.js'
 import {
   createDispatchProcessor,
@@ -217,6 +218,16 @@ function purgeOld(): void {
 const retentionTimer = setInterval(purgeOld, RETENTION_EVERY_MS)
 purgeOld()
 
+/** The sign of life the API's readiness report and the alerts read (jobs/heartbeat.ts). */
+function beat(): void {
+  writeHeartbeat(connection).catch((err: unknown) => {
+    log.warn({ err }, 'Heartbeat could not be written')
+  })
+}
+
+const heartbeatTimer = setInterval(beat, HEARTBEAT_EVERY_MS)
+beat()
+
 log.info({ env: env.nodeEnv }, 'Worker started')
 
 /**
@@ -230,6 +241,7 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(dispatchTimer)
   clearInterval(idleTimer)
   clearInterval(retentionTimer)
+  clearInterval(heartbeatTimer)
 
   setTimeout(() => {
     log.error('Forced exit after shutdown timeout')

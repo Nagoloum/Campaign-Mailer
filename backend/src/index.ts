@@ -2,11 +2,13 @@ import { RedisStore } from 'connect-redis'
 
 import { createApp } from './app.js'
 import { env } from './config/env.js'
-import { closePool } from './db/pool.js'
+import { closePool, pool } from './db/pool.js'
 import { closeRedis, connectRedis, redis } from './db/redis.js'
 import { createQueueConnection } from './jobs/connection.js'
+import { readHeartbeat } from './jobs/heartbeat.js'
 import { createQueues } from './jobs/queues.js'
 import { logger } from './logger.js'
+import { checkReadiness } from './services/readiness.js'
 
 const log = logger.child({ service: 'api' })
 
@@ -23,6 +25,31 @@ const queues = createQueues(queueConnection)
 const app = createApp({
   sessionStore: new RedisStore({ client: redis, prefix: 'cm:sess:' }),
   requestDispatch: (campaignId) => queues.requestDispatch(campaignId),
+  checkReadiness: () =>
+    checkReadiness({
+      database: async () => {
+        await pool.query('SELECT 1')
+      },
+      sessionStore: async () => {
+        await redis.ping()
+      },
+      queue: async () => {
+        const counts = await queues.queue.getJobCounts(
+          'waiting',
+          'prioritized',
+          'delayed',
+          'active',
+          'failed',
+        )
+        return {
+          waiting: (counts.waiting ?? 0) + (counts.prioritized ?? 0),
+          delayed: counts.delayed ?? 0,
+          active: counts.active ?? 0,
+          failed: counts.failed ?? 0,
+        }
+      },
+      workerHeartbeat: () => readHeartbeat(queueConnection),
+    }),
 })
 
 const server = app.listen(env.port, () => {

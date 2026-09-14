@@ -14,6 +14,7 @@ import { deleteCampaignFiles } from '../services/storage.js'
 import { createTermsRepository } from '../services/terms.js'
 import { buildUserExport } from '../services/userExport.js'
 import { createLogExportRepository } from '../services/logExport.js'
+import type { ReadinessReport } from '../services/readiness.js'
 import { createStatsRepository } from '../services/stats.js'
 import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
 import { TEMPLATE_VARIABLES } from '../services/template.js'
@@ -24,6 +25,7 @@ import { createCampaignRouter } from './campaigns.js'
 import { createContactRouter } from './contacts.js'
 import { createDashboardRouter } from './dashboard.js'
 import { createLogExportRouter } from './logExport.js'
+import { createReadyRouter } from './ready.js'
 import { createStatsRouter } from './stats.js'
 import { createUsersRouter } from './users.js'
 
@@ -33,6 +35,8 @@ export interface ApiRouterDeps {
    * without a queue connection, as the tests do.
    */
   requestDispatch?: ((campaignId: string) => Promise<void>) | undefined
+  /** Probes the dependencies for /api/ready. Absent in tests that build the app bare. */
+  checkReadiness?: (() => Promise<ReadinessReport>) | undefined
 }
 
 /**
@@ -44,12 +48,15 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
 
   /**
    * Liveness. Answers as long as the process is up, and says nothing about
-   * whether the database or the queue is reachable. Readiness, which does check
-   * those, is a Phase 7 task.
+   * whether the database or the queue is reachable: /api/ready does that.
    */
   apiRouter.get('/health', (_req, res) => {
     res.json({ status: 'ok', uptime: Math.round(process.uptime()) })
   })
+
+  if (deps.checkReadiness) {
+    apiRouter.use('/ready', createReadyRouter(deps.checkReadiness))
+  }
 
   apiRouter.use('/auth', authRouter)
 

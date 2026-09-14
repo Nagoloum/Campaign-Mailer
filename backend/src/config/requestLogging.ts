@@ -34,7 +34,9 @@ export function createRequestLogger(logger: Logger) {
       return id
     },
     // A load balancer polls this every few seconds; logging it drowns the rest.
-    autoLogging: { ignore: (req) => req.url === '/api/health' },
+    autoLogging: {
+      ignore: (req) => req.url === '/api/health' || req.url === '/api/ready',
+    },
     customLogLevel: (_req, res, err) => {
       if (err !== undefined || res.statusCode >= 500) {
         return 'error'

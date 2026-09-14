@@ -31,7 +31,11 @@ export interface AppDeps extends ApiRouterDeps {
  * restricted to FRONTEND_URL, the Redis-backed session, and the per-user rate
  * limit.
  */
-export function createApp({ sessionStore, requestDispatch }: AppDeps): Express {
+export function createApp({
+  sessionStore,
+  requestDispatch,
+  checkReadiness,
+}: AppDeps): Express {
   const app = express()
 
   // Behind Railway's proxy, so req.ip and secure cookies need the hop counted.
@@ -78,7 +82,7 @@ export function createApp({ sessionStore, requestDispatch }: AppDeps): Express {
     }),
   )
 
-  app.use('/api', createApiRouter({ requestDispatch }))
+  app.use('/api', createApiRouter({ requestDispatch, checkReadiness }))
 
   app.use(notFound)
   app.use(errorHandler)
