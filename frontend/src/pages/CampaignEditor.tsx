@@ -6,6 +6,7 @@ import { CadenceForm } from '@/components/CadenceForm'
 import { ContactTable } from '@/components/ContactTable'
 import { CsvImport } from '@/components/CsvImport'
 import { PreviewPanel } from '@/components/PreviewPanel'
+import { CampaignStatsPanel } from '@/components/CampaignStatsPanel'
 import { SendControls } from '@/components/SendControls'
 import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateEditor } from '@/components/TemplateEditor'
@@ -218,6 +219,13 @@ export function CampaignEditor() {
             }}
           />
         </div>
+
+        {/* A draft has sent nothing: statistics would be a panel of zeros. */}
+        {campaign.status !== 'draft' && (
+          <div className="mb-8">
+            <CampaignStatsPanel campaign={campaign} />
+          </div>
+        )}
 
         <TemplateEditor
           subject={draft.subject}

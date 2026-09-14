@@ -29,6 +29,29 @@ export interface Campaign {
   }
 }
 
+/** One day of sending, on the campaign's own calendar. */
+export interface DaySends {
+  /** YYYY-MM-DD in the campaign's time zone. */
+  day: string
+  sent: number
+  failed: number
+}
+
+export interface CampaignStats {
+  total: number
+  sent: number
+  failed: number
+  pending: number
+  ignored: number
+  /** Failed over attempted; null before anything was attempted. */
+  errorRate: number | null
+  lastSentAt: string | null
+  nextSendAt: string | null
+  /** A lower bound: another campaign of the account may spend the same ceiling. */
+  estimatedEndAt: string | null
+  perDay: DaySends[]
+}
+
 export interface StarterTemplate {
   id: string
   name: string
@@ -87,6 +110,15 @@ export const campaignsApi = {
 
   resume: (id: string) =>
     api.post<{ campaign: Campaign }>(`/campaigns/${id}/resume`).then((r) => r.campaign),
+
+  stats: (id: string) =>
+    api.get<{ stats: CampaignStats }>(`/campaigns/${id}/stats`).then((r) => r.stats),
+
+  /**
+   * A plain link, not a fetch: the browser handles the download, the session
+   * cookie rides along, and nothing is held in memory on this side.
+   */
+  logsExportUrl: (id: string) => `/api/campaigns/${id}/logs/export`,
 }
 
 export interface SendSchedule {
