@@ -4,7 +4,10 @@ import { useAuth } from '@/auth/useAuth'
 
 import { SignOutButton } from './SignOutButton'
 
-const NAV_ITEMS = [{ to: '/', label: 'Campagnes' }] as const
+const NAV_ITEMS = [
+  { to: '/', label: 'Campagnes' },
+  { to: '/account', label: 'Mon compte' },
+] as const
 
 /**
  * Shell for the signed-in part of the application: header, navigation, and the

@@ -71,4 +71,7 @@ export const api = {
   patch: <T>(path: string, payload?: unknown) =>
     request<T>(path, withBody('PATCH', payload)),
   delete: (path: string) => request<void>(path, { method: 'DELETE' }),
+  /** A DELETE that carries a body, such as a confirmation. */
+  deleteWith: <T>(path: string, payload: unknown) =>
+    request<T>(path, withBody('DELETE', payload)),
 }
