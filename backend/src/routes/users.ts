@@ -5,9 +5,11 @@ import { SESSION_COOKIE_NAME } from '../config/session.js'
 import { requireAuth } from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import type { DeletionReport } from '../services/accountDeletion.js'
+import { contactsToCsv, type UserExport } from '../services/userExport.js'
 
 export interface UsersRouterDeps {
   deleteAccount: (userId: string) => Promise<DeletionReport>
+  exportUser: (userId: string) => Promise<UserExport | null>
 }
 
 /**
@@ -19,7 +21,10 @@ const deleteAccountSchema = z
   .object({ email: z.string().trim().min(1).max(320) })
   .strict()
 
-export function createUsersRouter({ deleteAccount }: UsersRouterDeps): Router {
+export function createUsersRouter({
+  deleteAccount,
+  exportUser,
+}: UsersRouterDeps): Router {
   const router = Router()
 
   router.use(requireAuth)
@@ -67,6 +72,45 @@ export function createUsersRouter({ deleteAccount }: UsersRouterDeps): Router {
           })
         })
       })
+    })().catch(next)
+  })
+
+  /**
+   * GET /api/users/me/export — everything held about the user, as a download.
+   *
+   * `format=json` (the default) is the complete record; `format=csv` is every
+   * contact, the part most often opened in a spreadsheet. Never cached: both
+   * hold personal data about the user and about the people they wrote to.
+   */
+  router.get('/me/export', (req, res, next) => {
+    void (async () => {
+      const user = req.user as { id: string }
+      const data = await exportUser(user.id)
+
+      if (!data) {
+        res.status(404).json({ error: 'Account not found' })
+        return
+      }
+
+      const day = data.exportedAt.slice(0, 10)
+      res.setHeader('cache-control', 'no-store')
+
+      if (req.query.format === 'csv') {
+        res.setHeader('content-type', 'text/csv; charset=utf-8')
+        res.setHeader(
+          'content-disposition',
+          `attachment; filename="campaign-mailer-contacts-${day}.csv"`,
+        )
+        res.send(contactsToCsv(data))
+        return
+      }
+
+      res.setHeader('content-type', 'application/json; charset=utf-8')
+      res.setHeader(
+        'content-disposition',
+        `attachment; filename="campaign-mailer-donnees-${day}.json"`,
+      )
+      res.send(JSON.stringify(data, null, 2))
     })().catch(next)
   })
 

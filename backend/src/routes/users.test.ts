@@ -4,6 +4,8 @@ import { after, before, beforeEach, describe, it } from 'node:test'
 
 import express from 'express'
 
+import type { UserExport } from '../services/userExport.js'
+
 import { createUsersRouter } from './users.js'
 
 const ALICE = { id: 'aaaaaaaa-1111-4111-8111-111111111111', email: 'alice@exemple.fr' }
@@ -11,6 +13,48 @@ const ALICE = { id: 'aaaaaaaa-1111-4111-8111-111111111111', email: 'alice@exempl
 let signedIn: typeof ALICE | null
 let deletedFor: string[]
 let sessionDestroyed: boolean
+let exportedFor: string[] = []
+let exportMissing = false
+
+const SAMPLE_EXPORT: UserExport = {
+  exportedAt: '2026-09-14T10:00:00.000Z',
+  account: {
+    email: ALICE.email,
+    googleAccountId: 'g-1',
+    createdAt: '2026-09-01T00:00:00.000Z',
+  },
+  campaigns: [
+    {
+      id: 'c1',
+      name: 'Candidatures',
+      subject: 'Bonjour',
+      bodyHtml: '<p>Bonjour</p>',
+      bodyText: 'Bonjour',
+      attachmentName: null,
+      status: 'completed',
+      mailsPerDay: 46,
+      startHour: 9,
+      pauseMs: 30000,
+      timezone: 'Europe/Paris',
+      createdAt: '2026-09-01T00:00:00.000Z',
+      startedAt: null,
+      completedAt: null,
+      contacts: [
+        {
+          email: 'rh@exemple.fr',
+          contactName: 'Zoé',
+          companyName: null,
+          salutation: null,
+          status: 'sent',
+          errorMessage: null,
+          attempts: 1,
+          sentAt: '2026-09-02T09:00:00.000Z',
+        },
+      ],
+      logs: [],
+    },
+  ],
+}
 
 let baseUrl: string
 let server: import('node:http').Server
@@ -43,6 +87,10 @@ before(async () => {
         deletedFor.push(userId)
         return Promise.resolve({ deleted: true, googleRevoked: true, filesPurged: false })
       },
+      exportUser: (userId) => {
+        exportedFor.push(userId)
+        return Promise.resolve(exportMissing ? null : SAMPLE_EXPORT)
+      },
     }),
   )
 
@@ -66,6 +114,50 @@ beforeEach(() => {
   signedIn = ALICE
   deletedFor = []
   sessionDestroyed = false
+  exportedFor = []
+  exportMissing = false
+})
+
+describe('GET /users/me/export', () => {
+  const get = (query = '') => fetch(`${baseUrl}/users/me/export${query}`)
+
+  it('refuses a request without a session', async () => {
+    signedIn = null
+
+    assert.equal((await get()).status, 401)
+    assert.deepEqual(exportedFor, [])
+  })
+
+  it('exports the signed-in user, never another', async () => {
+    await get()
+    assert.deepEqual(exportedFor, [ALICE.id])
+  })
+
+  it('downloads the complete record as JSON by default, uncached', async () => {
+    const res = await get()
+
+    assert.equal(res.status, 200)
+    assert.match(res.headers.get('content-type') ?? '', /^application\/json/)
+    assert.equal(
+      res.headers.get('content-disposition'),
+      'attachment; filename="campaign-mailer-donnees-2026-09-14.json"',
+    )
+    assert.equal(res.headers.get('cache-control'), 'no-store')
+    assert.deepEqual(await res.json(), SAMPLE_EXPORT)
+  })
+
+  it('downloads the contacts as CSV when asked', async () => {
+    const res = await get('?format=csv')
+
+    assert.match(res.headers.get('content-type') ?? '', /^text\/csv/)
+    assert.equal(res.headers.get('cache-control'), 'no-store')
+    assert.ok((await res.text()).includes('"Candidatures","rh@exemple.fr","Zoé"'))
+  })
+
+  it('answers 404 when the account is gone', async () => {
+    exportMissing = true
+    assert.equal((await get()).status, 404)
+  })
 })
 
 const remove = (body: unknown) =>

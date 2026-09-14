@@ -9,6 +9,7 @@ import { createContactRepository } from '../services/contacts.js'
 import { createTokenCipher } from '../services/encryption.js'
 import { createGoogleTokenRevoker } from '../services/googleRevoke.js'
 import { deleteCampaignFiles } from '../services/storage.js'
+import { buildUserExport } from '../services/userExport.js'
 import { createLogExportRepository } from '../services/logExport.js'
 import { createStatsRepository } from '../services/stats.js'
 import { STARTER_TEMPLATES } from '../services/starterTemplates.js'
@@ -57,7 +58,10 @@ export function createApiRouter(deps: ApiRouterDeps = {}): Router {
   }
   apiRouter.use(
     '/users',
-    createUsersRouter({ deleteAccount: (userId) => deleteAccount(deletion, userId) }),
+    createUsersRouter({
+      deleteAccount: (userId) => deleteAccount(deletion, userId),
+      exportUser: (userId) => buildUserExport(pool, userId),
+    }),
   )
   const campaignRepository = createCampaignRepository(pool)
 
