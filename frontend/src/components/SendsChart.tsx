@@ -142,7 +142,7 @@ export function SendsChart({ days }: { days: readonly DaySends[] }) {
                     className="group flex h-full w-full cursor-default items-end justify-center rounded-sm focus-visible:outline-offset-0"
                   >
                     <span
-                      className="flex w-full max-w-6 flex-col gap-0.5 transition-[height,opacity] duration-300 ease-out group-hover:opacity-80 motion-reduce:transition-none"
+                      className="flex w-full max-w-6 flex-col gap-0.5 transition-opacity duration-150 group-hover:opacity-80"
                       style={{ height: `${String(height)}%` }}
                     >
                       {day.failed > 0 && (

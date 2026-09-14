@@ -75,7 +75,7 @@ export function Dashboard() {
         <h1 className="text-xl font-semibold tracking-tight">Campagnes</h1>
         <Link
           to="/campaigns/new"
-          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90"
+          className="press rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90"
         >
           Nouvelle campagne
         </Link>
@@ -163,8 +163,10 @@ function Allowance({ account }: { account: DashboardData['account'] }) {
         className={`mt-3 h-2 overflow-hidden rounded-full ${full ? 'bg-amber-100' : 'bg-accent/15'}`}
       >
         <div
-          className={`h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none ${full ? 'bg-amber-500' : 'bg-accent'}`}
-          style={{ width: `${String(Math.round(share * 100))}%` }}
+          // scaleX rather than width, and no radius of its own: the track clips
+          // it, so the rounded ends do not squash as it scales.
+          className={`h-full w-full origin-left transition-transform duration-300 ease-out motion-reduce:transition-none ${full ? 'bg-amber-500' : 'bg-accent'}`}
+          style={{ transform: `scaleX(${String(share)})` }}
         />
       </div>
 

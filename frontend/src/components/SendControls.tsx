@@ -71,7 +71,7 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
               setLaunching(true)
             }}
             disabled={blocker !== null}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="press rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
           >
             Lancer la campagne…
           </button>
@@ -82,7 +82,7 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
             type="button"
             onClick={() => void act(campaignsApi.pause, 'Campagne en pause.')}
             disabled={busy}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-50"
+            className="press rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface disabled:opacity-50"
           >
             {busy ? 'Mise en pause…' : 'Mettre en pause'}
           </button>
@@ -93,7 +93,7 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
             type="button"
             onClick={() => void act(campaignsApi.resume, 'Campagne reprise.')}
             disabled={busy}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="press rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
           >
             {busy ? 'Reprise…' : 'Reprendre'}
           </button>
@@ -105,7 +105,7 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
         // the ceiling doing its job, and it clears by itself.
         <p
           role="status"
-          className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          className="mt-3 enter rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
         >
           Plafond atteint : {campaign.sending?.accountSentLast24h} e-mails envoyés par ce
           compte sur les dernières 24 heures, sur {campaign.sending?.accountDailyLimit}{' '}
@@ -128,8 +128,10 @@ export function SendControls({ campaign, dirty, onChanged }: SendControlsProps) 
             className="h-1.5 overflow-hidden rounded-full bg-border"
           >
             <div
-              className="h-full bg-accent transition-[width]"
-              style={{ width: `${String(progress)}%` }}
+              // scaleX rather than width: the same bar, without re-laying it out
+              // on every frame of the transition.
+              className="h-full w-full origin-left bg-accent transition-transform duration-300 ease-out motion-reduce:transition-none"
+              style={{ transform: `scaleX(${String(progress / 100)})` }}
             />
           </div>
           <p className="mt-1.5 text-xs text-ink-muted tabular-nums">

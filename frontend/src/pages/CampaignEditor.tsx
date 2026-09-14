@@ -343,7 +343,7 @@ export function CampaignEditor() {
               type="button"
               onClick={() => void save()}
               disabled={saving || !dirty}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="press rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
             >
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>

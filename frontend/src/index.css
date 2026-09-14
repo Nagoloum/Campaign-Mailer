@@ -12,6 +12,94 @@
   --color-accent-ink: oklch(99% 0 0);
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* The one curve for motion that answers a person: a fast start, a gentle
+     settle. Replaces Tailwind's default ease-out. See docs/motion.md. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Press feedback for primary actions. Not on a disabled button: a press that
+   visibly lands on something that will not act is a small lie. */
+@utility press {
+  transition-property: transform, opacity, background-color;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:active:not(:disabled) {
+      transform: none;
+    }
+  }
+}
+
+/* A notice that appears inside a panel the user is already watching. */
+@utility enter {
+  transition-property: opacity, translate;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition-property: opacity;
+  }
+}
+
+@layer components {
+  /* The launch confirmation fades and settles in, and leaves the same way.
+     It stays centred: a modal does not grow from the button that opened it. */
+  .launch-dialog {
+    opacity: 1;
+    scale: 1;
+    transition-property: opacity, scale, overlay, display;
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-out);
+    transition-behavior: allow-discrete;
+  }
+
+  .launch-dialog:not([open]) {
+    opacity: 0;
+    scale: 0.97;
+  }
+
+  @starting-style {
+    .launch-dialog[open] {
+      opacity: 0;
+      scale: 0.97;
+    }
+  }
+
+  .launch-dialog::backdrop {
+    background-color: rgb(0 0 0 / 0.4);
+    transition-property: background-color, overlay, display;
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-out);
+    transition-behavior: allow-discrete;
+  }
+
+  .launch-dialog:not([open])::backdrop {
+    background-color: rgb(0 0 0 / 0);
+  }
+
+  @starting-style {
+    .launch-dialog[open]::backdrop {
+      background-color: rgb(0 0 0 / 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .launch-dialog,
+    .launch-dialog:not([open]) {
+      scale: 1;
+    }
+  }
 }
 
 @layer base {

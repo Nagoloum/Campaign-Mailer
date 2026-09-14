@@ -120,7 +120,7 @@ export function CampaignNew() {
         <button
           type="submit"
           disabled={submitting || name.trim() === ''}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="press rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? 'Création…' : 'Créer la campagne'}
         </button>

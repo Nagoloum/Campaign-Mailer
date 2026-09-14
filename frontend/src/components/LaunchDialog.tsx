@@ -64,7 +64,7 @@ export function LaunchDialog({
       ref={dialog}
       onClose={close}
       aria-labelledby="launch-heading"
-      className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-0 text-ink shadow-xl backdrop:bg-black/40"
+      className="launch-dialog m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-0 text-ink shadow-xl"
     >
       <div className="p-5">
         <h2 id="launch-heading" className="text-base font-semibold tracking-tight">
@@ -147,7 +147,7 @@ export function LaunchDialog({
           type="button"
           onClick={onConfirm}
           disabled={!accepted || busy}
-          className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="press rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50"
         >
           {busy ? 'Lancement…' : 'Lancer la campagne'}
         </button>

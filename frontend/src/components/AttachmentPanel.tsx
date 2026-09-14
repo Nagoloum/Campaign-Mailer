@@ -192,8 +192,8 @@ export function AttachmentPanel({
             className="h-1.5 w-full overflow-hidden rounded-full bg-border"
           >
             <div
-              className="h-full bg-accent transition-[width]"
-              style={{ width: `${String(progress)}%` }}
+              className="h-full w-full origin-left bg-accent transition-transform duration-300 ease-out motion-reduce:transition-none"
+              style={{ transform: `scaleX(${String(progress / 100)})` }}
             />
           </div>
           <p className="mt-1 text-xs text-ink-muted tabular-nums">
