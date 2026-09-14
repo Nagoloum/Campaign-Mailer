@@ -1,6 +1,7 @@
 import { createClient } from 'redis'
 
 import { env } from '../config/env.js'
+import { logger } from '../logger.js'
 
 /**
  * Redis connection for the session store.
@@ -29,7 +30,7 @@ export const redis = createClient({
 redis.on('error', (err: Error) => {
   // node-redis reconnects on its own. Logging keeps a recurring failure
   // visible instead of silent.
-  console.error('Redis connection error', err.message)
+  logger.warn({ err }, 'Session Redis connection error')
 })
 
 /** node-redis 4+ connects explicitly; nothing works before this resolves. */

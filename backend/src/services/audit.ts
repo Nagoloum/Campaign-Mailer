@@ -1,5 +1,7 @@
 import type { Pool } from 'pg'
 
+import { logger } from '../logger.js'
+
 /**
  * A record of the actions that matter after the fact.
  *
@@ -40,10 +42,7 @@ export function createAuditLog(pool: Pool): AuditLog {
       } catch (err) {
         // The action and the error, not the actor: a log line is not the place
         // to rebuild the trail this table exists to hold.
-        console.error('Audit event could not be recorded', {
-          action,
-          error: err instanceof Error ? err.message : String(err),
-        })
+        logger.error({ err, action }, 'Audit event could not be recorded')
       }
     },
   }

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 
+import { logger } from '../logger.js'
 import { isUuid, requireAuth } from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import {
@@ -191,10 +192,7 @@ export function createCampaignRouter(
     try {
       await options.requestDispatch(campaignId)
     } catch (err) {
-      console.error('Could not request an immediate dispatch', {
-        campaignId,
-        error: err instanceof Error ? err.message : String(err),
-      })
+      logger.error({ err, campaignId }, 'Could not request an immediate dispatch')
     }
   }
 

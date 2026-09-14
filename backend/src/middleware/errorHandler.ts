@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express'
+import type { Logger } from 'pino'
 
 import { isProduction } from '../config/env.js'
+import { logger } from '../logger.js'
 
 /**
  * An error whose status and message are safe to send to the client.
@@ -27,7 +29,7 @@ export function notFound(req: Request, res: Response): void {
  */
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): void {
@@ -41,9 +43,11 @@ export function errorHandler(
     return
   }
 
-  // Never leak an internal message or a stack trace to a client. Tokens and
-  // connection strings surface in those.
-  console.error('Unhandled error', err)
+  // Through the request's own logger when there is one, so the line carries
+  // the request id the user was given. Never to the client: tokens and
+  // connection strings surface in internal messages.
+  const log = (req as { log?: Logger }).log ?? logger
+  log.error({ err }, 'Unhandled error')
 
   res.status(500).json({
     error: isProduction ? 'Internal server error' : String(err),

@@ -1,5 +1,7 @@
 import type { Pool } from 'pg'
 
+import { logger } from '../logger.js'
+
 import type { TokenCipher } from './encryption.js'
 import type { GoogleTokenRevoker } from './googleRevoke.js'
 
@@ -46,7 +48,7 @@ export async function deleteAccount(
   const log =
     deps.log ??
     ((message: string, detail: Record<string, unknown>) => {
-      console.error(message, detail)
+      logger.error(detail, message)
     })
 
   const { rows } = await deps.pool.query<{

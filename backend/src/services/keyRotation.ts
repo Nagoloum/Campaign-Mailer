@@ -1,5 +1,7 @@
 import type { Pool } from 'pg'
 
+import { logger } from '../logger.js'
+
 import type { TokenCipher } from './encryption.js'
 
 /**
@@ -94,7 +96,7 @@ export async function reencryptTokens(
         case 'unreadable':
           report.unreadable += 1
           // The id only, so an operator can ask that user to reconnect.
-          console.error('Stored token readable by no configured key', { userId: row.id })
+          logger.error({ userId: row.id }, 'Stored token readable by no configured key')
           break
       }
     }

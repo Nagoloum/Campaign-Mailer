@@ -1,5 +1,7 @@
 import type { Pool } from 'pg'
 
+import { logger } from '../logger.js'
+
 import {
   dispatchCampaign,
   listDispatchableCampaignIds,
@@ -81,10 +83,7 @@ export function createDispatchProcessor(deps: DispatchDeps) {
         outcomes.set(id, await dispatchCampaign(deps, id))
       } catch (err) {
         // One campaign failing to plan must not starve the others of their day.
-        console.error('Dispatch failed for a campaign', {
-          campaignId: id,
-          error: err instanceof Error ? err.message : String(err),
-        })
+        logger.error({ err, campaignId: id }, 'Dispatch failed for a campaign')
       }
     }
 

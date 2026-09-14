@@ -2,6 +2,7 @@ import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 
 import { pool } from '../db/pool.js'
+import { logger } from '../logger.js'
 import { createTokenCipher } from '../services/encryption.js'
 import {
   buildStrategyOptions,
@@ -65,7 +66,12 @@ export function configurePassport(): typeof passport {
           .catch((err: unknown) => {
             // Never hand the raw error to Passport: it can carry the token
             // values that came back from Google.
-            console.error('Google sign-in failed', err)
+            // The message only: an error from the token exchange is not an
+            // object to log whole.
+            logger.error(
+              { error: err instanceof Error ? err.message : 'unknown error' },
+              'Google sign-in failed',
+            )
             done(new Error('Google sign-in failed'))
           })
       },

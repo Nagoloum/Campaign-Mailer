@@ -1,5 +1,7 @@
 import { Redis } from 'ioredis'
 
+import { logger } from '../logger.js'
+
 /**
  * The Redis connection BullMQ runs on.
  *
@@ -18,7 +20,7 @@ export function createQueueConnection(url: string): Redis {
 
   connection.on('error', (err: Error) => {
     // ioredis reconnects on its own; the log keeps a recurring failure visible.
-    console.error('Queue Redis connection error', err.message)
+    logger.warn({ err }, 'Queue Redis connection error')
   })
 
   return connection

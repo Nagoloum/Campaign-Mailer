@@ -101,7 +101,10 @@ export function createAttachmentRouter(campaigns: CampaignRepository): Router {
           await deleteAttachment(previousKey).catch((err: unknown) => {
             // The campaign is already correct; an orphan object costs storage,
             // not correctness.
-            console.error('Could not delete the replaced attachment', err)
+            req.log.warn(
+              { err, campaignId: campaign.id },
+              'Could not delete the replaced attachment',
+            )
           })
         }
 
@@ -160,7 +163,10 @@ export function createAttachmentRouter(campaigns: CampaignRepository): Router {
       if (campaign.attachment_key) {
         await campaigns.setAttachment(campaign.id, null)
         await deleteAttachment(campaign.attachment_key).catch((err: unknown) => {
-          console.error('Could not delete the attachment object', err)
+          req.log.warn(
+            { err, campaignId: campaign.id },
+            'Could not delete the attachment object',
+          )
         })
       }
 

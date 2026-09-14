@@ -6,6 +6,9 @@ import { closePool } from './db/pool.js'
 import { closeRedis, connectRedis, redis } from './db/redis.js'
 import { createQueueConnection } from './jobs/connection.js'
 import { createQueues } from './jobs/queues.js'
+import { logger } from './logger.js'
+
+const log = logger.child({ service: 'api' })
 
 // node-redis connects explicitly, and the session store is unusable until it
 // does. Failing here rather than on the first sign-in keeps a misconfigured
@@ -23,7 +26,7 @@ const app = createApp({
 })
 
 const server = app.listen(env.port, () => {
-  console.log(`API listening on http://localhost:${env.port} [${env.nodeEnv}]`)
+  log.info({ port: env.port, env: env.nodeEnv }, 'API listening')
 })
 
 /**
@@ -32,11 +35,11 @@ const server = app.listen(env.port, () => {
  * stop taking requests and release its connections.
  */
 function shutdown(signal: string): void {
-  console.log(`${signal} received, closing server`)
+  log.info({ signal }, 'Closing server')
 
   server.close((err) => {
     if (err) {
-      console.error('Error while closing server', err)
+      log.error({ err }, 'Error while closing server')
       process.exit(1)
     }
 
@@ -57,7 +60,7 @@ function shutdown(signal: string): void {
 
   // Do not hang forever on a stuck connection.
   setTimeout(() => {
-    console.error('Forced exit after shutdown timeout')
+    log.error('Forced exit after shutdown timeout')
     process.exit(1)
   }, 10_000).unref()
 }

@@ -12,7 +12,9 @@ import {
   buildHelmetOptions,
   rateLimitKey,
 } from './config/security.js'
+import { createRequestLogger } from './config/requestLogging.js'
 import { buildSessionOptions } from './config/session.js'
+import { logger } from './logger.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
 import { createApiRouter, type ApiRouterDeps } from './routes/index.js'
 
@@ -36,7 +38,11 @@ export function createApp({ sessionStore, requestDispatch }: AppDeps): Express {
   app.set('trust proxy', 1)
   app.disable('x-powered-by')
 
-  // First, so the headers are present on every response including errors.
+  // Before anything else, so every request, refused ones included, gets an id
+  // and a log line.
+  app.use(createRequestLogger(logger))
+
+  // Next, so the headers are present on every response including errors.
   app.use(helmet(buildHelmetOptions(isProduction)))
   app.use(cors(buildCorsOptions(env.frontendUrl)))
 

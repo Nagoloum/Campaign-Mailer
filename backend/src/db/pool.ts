@@ -1,6 +1,7 @@
 import pg from 'pg'
 
 import { env } from '../config/env.js'
+import { logger } from '../logger.js'
 
 /**
  * The connection pool the API and the workers share within a process.
@@ -24,7 +25,7 @@ export const pool = new pg.Pool({
 pool.on('error', (err) => {
   // An idle client failing is not fatal: the pool discards it and opens
   // another. Logging it keeps a recurring network problem visible.
-  console.error('Idle database client error', err)
+  logger.warn({ err }, 'Idle database client error')
 })
 
 export async function closePool(): Promise<void> {

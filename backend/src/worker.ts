@@ -15,6 +15,7 @@ import {
   failAfterLastAttempt,
 } from './jobs/processors.js'
 import { createQueues, type CampaignJobData } from './jobs/queues.js'
+import { logger } from './logger.js'
 import { createComposer } from './services/composer.js'
 import type { SendJobData } from './services/dispatch.js'
 import { createTokenCipher } from './services/encryption.js'
@@ -35,6 +36,8 @@ import { createUserRepository } from './services/users.js'
  * connection. It sleeps while nothing is due — see jobs/idleSleep.ts — so it
  * can run around the clock within Upstash's free allowance.
  */
+
+const log = logger.child({ service: 'worker' })
 
 /** How often every scheduled or running campaign is planned again. */
 const DISPATCH_EVERY_MS = 15 * 60 * 1000
@@ -79,15 +82,35 @@ function isSendJob(job: Job<CampaignJobData>): job is Job<SendJobData> {
   return job.name === SEND_JOB
 }
 
+/**
+ * Every line about a job carries its id, and the campaign and contact it
+ * concerns: what `grep jobId` needs to rebuild one send's story across the
+ * attempts.
+ */
+function jobLogger(job: Job<CampaignJobData>) {
+  return log.child({
+    jobId: job.id,
+    job: job.name,
+    attempt: job.attemptsMade + 1,
+    campaignId: job.data.campaignId,
+    ...(isSendJob(job) ? { contactId: job.data.contactId } : {}),
+  })
+}
+
 const worker = new Worker<CampaignJobData>(
   CAMPAIGN_QUEUE,
   async (job) => {
+    const jobLog = jobLogger(job)
+
     if (isSendJob(job)) {
-      await processSend(job.data)
+      const outcome = await processSend(job.data)
+      // The outcome kind only: never the address, never the message.
+      jobLog.info({ outcome: outcome.kind }, 'Send job finished')
       return
     }
 
-    await processDispatch(job.data)
+    const outcomes = await processDispatch(job.data)
+    jobLog.info({ campaigns: outcomes.size }, 'Dispatch job finished')
   },
   // One job at a time. The pace between messages is the point of this
   // product, the planner already spreads the sends out, and a plan is a few
@@ -101,20 +124,26 @@ const worker = new Worker<CampaignJobData>(
 )
 
 worker.on('failed', (job, err) => {
-  if (!job || !isSendJob(job) || job.attemptsMade < (job.opts.attempts ?? 1)) {
+  if (!job) {
+    log.error({ err }, 'A job failed without a job attached')
+    return
+  }
+
+  const jobLog = jobLogger(job)
+  const lastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1)
+  jobLog[lastAttempt ? 'error' : 'warn']({ err, lastAttempt }, 'Job failed')
+
+  if (!lastAttempt || !isSendJob(job)) {
     return
   }
 
   failAfterLastAttempt(pool, job.data, err).catch((recordErr: unknown) => {
-    console.error('Could not record a send that ran out of attempts', {
-      contactId: job.data.contactId,
-      error: recordErr instanceof Error ? recordErr.message : String(recordErr),
-    })
+    jobLog.error({ err: recordErr }, 'Could not record a send that ran out of attempts')
   })
 })
 
 worker.on('error', (err) => {
-  console.error('Worker error', err.message)
+  log.error({ err }, 'Worker error')
 })
 
 const idle = createIdleController({
@@ -124,11 +153,19 @@ const idle = createIdleController({
 })
 
 function checkIdle(): void {
-  idle.check().catch((err: unknown) => {
-    // A failed check leaves the worker as it was. Awake costs commands; asleep
-    // costs latency; neither loses a send, and the next check tries again.
-    console.error('Idle check failed', err instanceof Error ? err.message : String(err))
-  })
+  idle
+    .check()
+    .then((decision) => {
+      if (decision !== 'stay') {
+        log.debug({ decision }, 'Idle check')
+      }
+    })
+    .catch((err: unknown) => {
+      // A failed check leaves the worker as it was. Awake costs commands;
+      // asleep costs latency; neither loses a send, and the next check tries
+      // again.
+      log.warn({ err }, 'Idle check failed')
+    })
 }
 
 /**
@@ -145,10 +182,7 @@ function planAll(): void {
       checkIdle()
     })
     .catch((err: unknown) => {
-      console.error(
-        'Scheduled dispatch failed',
-        err instanceof Error ? err.message : String(err),
-      )
+      log.error({ err }, 'Scheduled dispatch failed')
     })
 }
 
@@ -172,21 +206,18 @@ function purgeOld(): void {
   purgeExpired(pool)
     .then((report) => {
       if (report.logs + report.auditEvents > 0) {
-        console.log('Retention purge', report)
+        log.info(report, 'Retention purge')
       }
     })
     .catch((err: unknown) => {
-      console.error(
-        'Retention purge failed',
-        err instanceof Error ? err.message : String(err),
-      )
+      log.error({ err }, 'Retention purge failed')
     })
 }
 
 const retentionTimer = setInterval(purgeOld, RETENTION_EVERY_MS)
 purgeOld()
 
-console.log(`Worker started [${env.nodeEnv}]`)
+log.info({ env: env.nodeEnv }, 'Worker started')
 
 /**
  * Graceful shutdown. The host sends SIGTERM on every deploy. `close()` waits for
@@ -194,14 +225,14 @@ console.log(`Worker started [${env.nodeEnv}]`)
  * one outcome this engine can only report as unknown.
  */
 async function shutdown(signal: string): Promise<void> {
-  console.log(`${signal} received, finishing the job in hand`)
+  log.info({ signal }, 'Finishing the job in hand')
 
   clearInterval(dispatchTimer)
   clearInterval(idleTimer)
   clearInterval(retentionTimer)
 
   setTimeout(() => {
-    console.error('Forced exit after shutdown timeout')
+    log.error('Forced exit after shutdown timeout')
     process.exit(1)
   }, 30_000).unref()
 
