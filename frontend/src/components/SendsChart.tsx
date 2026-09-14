@@ -51,6 +51,21 @@ export function SendsChart({ days }: { days: readonly DaySends[] }) {
   // Label every k-th day so the axis never collides, and always the last one.
   const every = Math.ceil(series.length / 7)
   const activeDay = active === null ? undefined : series.at(active)
+  const lastIndex = series.length - 1
+
+  /**
+   * The last day always gets its label; a thinned label too close to it is
+   * dropped rather than left to overlap it, which at 375px it would.
+   */
+  const showLabel = (index: number) =>
+    index === lastIndex ||
+    (index % every === 0 && lastIndex - index >= Math.ceil(every / 2))
+
+  /** Kept off the edges, so the tooltip of the first or last column stays on screen. */
+  const tooltipLeft =
+    active === null
+      ? 0
+      : Math.min(85, Math.max(15, ((active + 0.5) / series.length) * 100))
 
   return (
     <figure aria-labelledby={titleId} className="m-0">
@@ -152,9 +167,7 @@ export function SendsChart({ days }: { days: readonly DaySends[] }) {
           <ol aria-hidden className="mt-1.5 flex text-[11px] text-ink-muted">
             {series.map((day, index) => (
               <li key={day.day} className="flex-1 text-center whitespace-nowrap">
-                {index % every === 0 || index === series.length - 1
-                  ? dayLabel(day.day)
-                  : ''}
+                {showLabel(index) ? dayLabel(day.day) : ''}
               </li>
             ))}
           </ol>
@@ -163,7 +176,7 @@ export function SendsChart({ days }: { days: readonly DaySends[] }) {
             <div
               role="status"
               className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs shadow-sm"
-              style={{ left: `${String(((active + 0.5) / series.length) * 100)}%` }}
+              style={{ left: `${String(tooltipLeft)}%` }}
             >
               <p className="text-ink-muted">{dayLabel(activeDay.day)}</p>
               <p className="mt-1 flex items-center gap-2">
