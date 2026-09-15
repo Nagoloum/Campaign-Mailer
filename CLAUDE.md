@@ -10,11 +10,11 @@ The application is proprietary. Copyright holder: Daniel Nagoloum Talla. See `LI
 
 ## State of the repository
 
-**Pre-code.** As of 10 September 2026 the repository holds the plan, the license, the root workspace configuration and the conventions. Neither the `frontend/` nor the `backend/` workspace is scaffolded; both hold a `.gitkeep` placeholder.
+**Phase 7 delivered, awaiting review (15 September 2026).** Phases 0 to 6 are complete: sign-in, campaigns, CSV import, attachments, the send engine, dashboard and statistics, data protection. Phase 7 added structured logs, Sentry, readiness and alerts, the throwaway-schema test runs, the Playwright journey and the documentation in `docs/`. Phase 8 (production deployment) is next.
 
-`ROADMAP.md` is the plan of record: ten phases, and within a phase one bullet is one ticket, one branch, one commit. Read it before starting work. It carries the definition of done for each phase and annotates every work item with the skills to load before implementing it.
+`ROADMAP.md` is the plan of record: ten phases, and within a phase one bullet is one ticket, one commit on `main`. Read it before starting work. It carries the definition of done for each phase and annotates every work item with the skills to load before implementing it.
 
-`CONTRIBUTING.md` carries the branch and commit conventions, plus the three areas that need extra care.
+`CONTRIBUTING.md` carries the commit conventions, the checks to run before a commit, and the three areas that need extra care. `docs/ARCHITECTURE.md` shows the components and the send flow; `docs/RUNBOOK.md` the incident procedures; `docs/send-engine.md` and `docs/security.md` the rules behind them.
 
 ## Working agreement with the repository owner
 
@@ -26,26 +26,27 @@ The application is proprietary. Copyright holder: Daniel Nagoloum Talla. See `LI
 
 ## Commands
 
-Run from the repository root. Each script delegates to every workspace that defines it, via `--if-present`, so they exit cleanly while the workspaces are still empty and become useful as the workspaces appear.
+Run from the repository root.
 
 ```bash
 npm install              # install all workspaces
-npm run dev              # frontend and backend in watch mode
-npm run build            # production builds
-npm run lint             # ESLint
-npm run typecheck        # tsc --noEmit
-npm test                 # test suites
+npm run dev              # frontend and backend in watch mode (not the worker)
+npm run dev:worker       # the send worker, only while working on sending
+npm run verify           # format check, lint, typecheck, build: the gate
+npm test                 # backend suite; database tests skip without DATABASE_URL
+npm run test:coverage    # whole suite on a throwaway schema, fails under 70 % / 90 % in services
+npm run test:e2e         # Playwright journey on a throwaway schema
 npm run migrate:latest   # apply pending migrations (backend workspace)
 npm run migrate:down     # roll back the last migration
 ```
 
-Target a single workspace with `npm run <script> --workspace backend`.
+Target a single workspace with `npm run <script> --workspace backend`. `npm run test:integration --workspace backend` is the whole suite on a throwaway schema without coverage.
 
-Backend tests use Node's built-in runner through tsx: `tsx --test "src/**/*.test.ts"`. Run one file with `npx tsx --test src/services/encryption.test.ts` from `backend/`, and `npm run test:watch` while working on one.
+Backend tests use Node's built-in runner through tsx. Run one file with `npx tsx --env-file-if-exists=.env --test src/services/encryption.test.ts` from `backend/`. `node:test` won over vitest because it adds no dependency and needs no configuration. The frontend has no unit runner; it is covered by the Playwright journey.
 
-Choosing the runner was a Phase 7 item, pulled forward in Phase 1 because test-driven work needs it from the first service. `node:test` adds no dependency and needs no configuration, which is why it won over vitest for a project this size. The frontend has no runner yet.
+Test files live beside the code they cover: `*.test.ts`, and `*.integration.test.ts` for those needing PostgreSQL. `tsconfig.json` keeps them in the program so `typecheck` covers them; `tsconfig.build.json` excludes them, and `src/e2e/`, from `dist/`.
 
-Test files live beside the code they cover, as `*.test.ts`. `tsconfig.json` keeps them in the program so `typecheck` covers them; `tsconfig.build.json` excludes them so they never reach `dist/`.
+Before a commit: `npm run verify`, plus `npm run test:coverage` when backend code changed and `npm run test:e2e` when a user flow changed. GitHub Actions does not run (see Environment notes), so these local runs are the only gate.
 
 ## Stack, and the three deliberate departures from the specification
 
@@ -69,16 +70,15 @@ The provisioned services all sit in **us-east-1**: Neon project `campaign-mailer
 
 ## Architecture, and where the risk sits
 
-Four layers, and the boundaries matter:
+Three layers, and the boundaries matter:
 
-- **Routes** validate the payload with a schema and delegate. A route that queries the database directly will be sent back in review.
-- **Controllers** orchestrate.
+- **Routes** validate the payload with a schema, check ownership and delegate; there is no separate controller layer. A route that queries the database directly will be sent back in review. `signedInUserId` and `campaignIdParam` in `middleware/auth.ts` are the one way to read the user and the campaign id.
 - **Services** (`backend/src/services/`) hold the business rules and are the only layer that talks to the database or to an external API.
 - **Jobs** (`backend/src/jobs/`) are BullMQ workers. They run in a process separate from the API.
 
 The send engine, spread across `services/` and `jobs/`, is the part of this codebase where a defect is not recoverable. A duplicate send reaches a real recipient and cannot be undone, and an over-aggressive send can get a user's Google account suspended. Three properties are non-negotiable there:
 
-- **Idempotency.** A contact must never receive the same campaign email twice, including after a worker is killed mid-campaign and restarted. Enforced by a lock on the contact plus a uniqueness constraint keyed on `(campaign_id, contact_id)`.
+- **Idempotency.** A contact must never receive the same campaign email twice, including after a worker is killed mid-campaign and restarted. Enforced by the job id (`send-<contactId>`), a conditional claim on the contact, and a unique index allowing one `sent` log row per contact (`logs_one_sent_per_contact_idx`). A contact whose attempt was counted but never recorded is marked failed, outcome unknown, and never resent.
 - **A campaign state machine.** `draft → scheduled → running → paused → running → completed`. Any transition outside that graph is rejected with a 409, not silently applied.
 - **A hard daily cap** below Gmail's own limit. Google blocks a personal account past 500 messages over a rolling 24 hours; the application stops each account at 450 (`GMAIL_DAILY_LIMIT`, refused above 500) and no campaign may ask for more. Reaching it holds the sending without changing the campaign's status: it stays `running` and resumes by itself when the window frees, and the interface says so. The owner decided this on 14 September 2026, over the roadmap's original "pause the campaign", because a paused campaign would need resuming by hand every morning. Two sends are at least 10 seconds apart, 30 by default.
 
@@ -96,7 +96,14 @@ Every call into the Gmail API goes through `createAccessTokenProvider` in `servi
 
 `state: true` belongs in the **strategy** options, not in the options passed to `passport.authenticate`. passport-oauth2 reads it at construction to install a session-backed state store; passed to `authenticate()` it is treated as a literal value to forward, and no CSRF protection is installed while the code still looks correct.
 
-The database schema is defined in section 5 of the specification: `users`, `campaigns`, `contacts`, `logs`. Every migration ships with a working rollback.
+The database schema started from section 5 of the specification (`users`, `campaigns`, `contacts`, `logs`) and gained `audit_events` in Phase 6. Every migration ships with a working rollback.
+
+## Observability
+
+- **Logs** are JSON from pino (`logger.ts`), silent under the test runner. Requests carry `req.id`, returned as `x-request-id`; job lines carry `jobId`, `campaignId`, `contactId`. The request serializer logs method and path only: the default one would log the session cookie and the OAuth `code` in the callback's query string. Tokens are redacted by path.
+- **Sentry** (`services/errorReporting.ts`, and its frontend twin) is a no-op without `SENTRY_DSN` / `VITE_SENTRY_DSN`. `scrubEvent` drops cookies, headers, bodies, query strings, and redacts addresses and Google tokens from every message. A Gmail refusal is a warning grouped by fingerprint, not an error per contact. Without a DSN, Vite drops the frontend SDK from the bundle entirely.
+- **`/api/ready`** checks the database, the session store and the queue (two seconds each, in parallel) and reports queue depth and the worker heartbeat. The worker's absence does not make the API unready: restarting the API would not fix it.
+- **Alerts** (`services/alerts.ts`): send error rate above 5 % over an hour from 10 attempts, run in the worker right after the plan so Neon is not woken for it; queue stuck for 15 minutes and worker heartbeat older than 15 minutes, run from the API every five minutes on Redis only (`WORKER_MONITOR`, on in production). Each is notified when it starts, every six hours while it lasts, and when it ends.
 
 ## Environment notes
 
@@ -105,7 +112,21 @@ The owner develops on Windows 11 with PowerShell 5.1 and Node 24.
 - `.gitattributes` normalizes the repository to LF. Do not add files that fight it.
 - PowerShell's execution policy is `Restricted` on this machine, which prevents `.ps1` scripts from running. This will break husky hooks and any npm binary shipped as `.ps1`. Fix without admin rights: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 - **GitHub Actions does not run.** As of 11 September 2026 the API answers `422: Actions has been disabled for this user` on a dispatch, while the repository's own setting reports `enabled: true` and the workflow reports `state: active`. The restriction sits on the account, not the repository, so no change to `ci.yml` or to repository settings will lift it. The owner has to resolve it at github.com (billing, email verification, or support). Until then the pipeline is untested and `npm run verify` locally is the only gate.
+- **Never pipe a commit message into `git commit` from PowerShell.** A here-string piped in gains a byte-order mark at the start of the subject. Use `-m` or `-F <file>`. Stage explicit paths only.
+- **`spawn` with `shell: true` on Windows** splits `C:\Program Files\nodejs\node.exe` at the space, and passing an argument array to a shell raises DEP0190. `scripts/withTestDatabase.mjs` runs node without a shell and the user command as one quoted line.
+- **PowerShell strips backticks** inside `node -e "..."`; use single quotes or a scratch file (`.mts` when it needs top-level await under tsx).
+- **An unescaped BOM character in source** fails ESLint's `no-irregular-whitespace`. Write `\uFEFF`.
 - A broken npm was diagnosed and fixed on 10 September 2026: a stale `minipass` 3.3.6 nested under npm's own `minizlib` shadowed `minipass` 7.1.2, and since minizlib v3 reads the named `Minipass` export that 3.x does not provide, every npm command on the machine failed with `Class extends value undefined is not a constructor or null`. If that error reappears after a Node upgrade, look for a nested `minipass` under `node_modules/npm/node_modules/minizlib/` and remove it.
+
+## Testing pitfalls met so far
+
+- **Integration test files run in parallel against one database.** A cleanup by prefix (`google_id LIKE 'itest-%'`) deleted the accounts of neighbouring files mid-test and failed them with foreign-key violations. Create rows under a unique id and delete exactly those.
+- **The throwaway schema** works because Neon's direct host accepts `options=-c search_path=<schema>` in the connection string. The pooled host does not; `withTestDatabase.mjs` refuses it. Migrations go into the schema with node-pg-migrate's `--schema`.
+- **A query over a global table** (the error rate counts every log row) cannot be tested by counting in a shared database. `alerts.integration.test.ts` does it inside one `REPEATABLE READ` transaction that is rolled back.
+- **Coverage from Node's runner counts comments, `import type`, interfaces and type aliases as uncovered lines**, through source maps. `src/scripts/checkCoverage.ts` sets them aside with the TypeScript parser; do not lower the thresholds because a documented file reads badly in the raw table.
+- **Test sessions without Google**: `src/e2e/session.ts` writes the session into the store and signs its id as express-session does. Do not add a login route or flag to the application for tests. `src/e2e/server.ts` refuses to start unless `NODE_ENV=test`, `E2E=1` and `DATABASE_URL` points at a `test_` schema.
+- **Playwright locators are strict.** "Enregistrer" also matches "Enregistrer le rythme", and the campaign page has two file inputs (attachment and CSV). Use `exact: true` and scope to the section's region.
+- **`req.params` is typed `{}`** on a router mounted with `mergeParams`, though it is filled at runtime. Read the campaign id through `campaignIdParam`.
 
 ## Google OAuth verification
 
