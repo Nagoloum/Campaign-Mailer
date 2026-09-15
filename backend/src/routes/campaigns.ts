@@ -1,7 +1,7 @@
 import { Router } from 'express'
 
 import { logger } from '../logger.js'
-import { isUuid, requireAuth } from '../middleware/auth.js'
+import { campaignIdParam, requireAuth, signedInUserId } from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import {
   CADENCE_FIELDS,
@@ -55,19 +55,8 @@ export function createCampaignRouter(
 
   router.use(requireAuth)
 
-  const userId = (req: { user?: unknown }): string => (req.user as { id: string }).id
-
-  /**
-   * The campaign id from the path, or null.
-   *
-   * Express types a route parameter as string | string[] once a middleware
-   * precedes the handler, since a wildcard can match several segments. The
-   * shape is checked before the value reaches Postgres, because `WHERE id = $1`
-   * against a uuid column raises a syntax error on anything else, which would
-   * answer 500 where an unknown id answers 404 and let the two be told apart.
-   */
-  const paramId = (req: { params: Record<string, unknown> }): string | null =>
-    isUuid(req.params.id) ? req.params.id : null
+  const userId = signedInUserId
+  const paramId = campaignIdParam
 
   /**
    * A campaign with its account's sending over the last 24 hours.

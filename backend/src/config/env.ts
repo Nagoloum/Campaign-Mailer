@@ -26,24 +26,6 @@ function required(name: string): string {
   return value
 }
 
-function optionalPort(name: string, fallback: number): number {
-  // Same as above: the name is a literal from this module.
-  // eslint-disable-next-line security/detect-object-injection
-  const raw = process.env[name]
-
-  if (raw === undefined || raw === '') {
-    return fallback
-  }
-
-  const parsed = Number(raw)
-
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
-    throw new Error(`${name} must be an integer between 1 and 65535, got: ${raw}`)
-  }
-
-  return parsed
-}
-
 function optionalInteger(
   name: string,
   fallback: number,
@@ -81,7 +63,7 @@ function nodeEnv(): NodeEnv {
 
 export const env = {
   nodeEnv: nodeEnv(),
-  port: optionalPort('PORT', 3000),
+  port: optionalInteger('PORT', 3000, 1, 65535),
   // Protects the Google tokens at rest. Required rather than optional: a
   // process that starts without it would store readable refresh tokens.
   encryptionKey: required('ENCRYPTION_KEY'),

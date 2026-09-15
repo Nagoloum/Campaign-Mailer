@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 
 import { SESSION_COOKIE_NAME } from '../config/session.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, signedInUserId } from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import type { DeletionReport } from '../services/accountDeletion.js'
 import type { AuditLog } from '../services/audit.js'
@@ -99,7 +99,7 @@ export function createUsersRouter({
    */
   router.post('/me/terms', validateBody(acceptTermsSchema), (req, res, next) => {
     void (async () => {
-      const user = req.user as { id: string }
+      const userId = signedInUserId(req)
       const { version } = req.body as z.infer<typeof acceptTermsSchema>
 
       if (version !== CURRENT_TERMS_VERSION) {
@@ -107,8 +107,8 @@ export function createUsersRouter({
         return
       }
 
-      await acceptTerms(user.id, version)
-      await audit?.record(user.id, 'terms.accepted')
+      await acceptTerms(userId, version)
+      await audit?.record(userId, 'terms.accepted')
 
       res.status(204).end()
     })().catch(next)
@@ -123,15 +123,15 @@ export function createUsersRouter({
    */
   router.get('/me/export', (req, res, next) => {
     void (async () => {
-      const user = req.user as { id: string }
-      const data = await exportUser(user.id)
+      const userId = signedInUserId(req)
+      const data = await exportUser(userId)
 
       if (!data) {
         res.status(404).json({ error: 'Account not found' })
         return
       }
 
-      await audit?.record(user.id, 'account.exported')
+      await audit?.record(userId, 'account.exported')
 
       const day = data.exportedAt.slice(0, 10)
       res.setHeader('cache-control', 'no-store')

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, signedInUserId } from '../middleware/auth.js'
 import type { CampaignStatus } from '../services/campaignState.js'
 import { CAMPAIGN_STATUSES } from '../services/campaignState.js'
 import { estimateSchedule } from '../services/campaignStats.js'
@@ -35,7 +35,7 @@ export function createDashboardRouter({
 
   router.use(requireAuth)
 
-  const userId = (req: { user?: unknown }): string => (req.user as { id: string }).id
+  const userId = signedInUserId
 
   router.get('/', (req, res, next) => {
     void (async () => {

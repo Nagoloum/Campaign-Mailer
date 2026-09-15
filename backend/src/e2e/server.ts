@@ -1,16 +1,17 @@
-import { createHmac, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 import express from 'express'
 import session from 'express-session'
 
 import { createApp } from '../app.js'
 import { env } from '../config/env.js'
-import { SESSION_COOKIE_NAME } from '../config/session.js'
 import { pool } from '../db/pool.js'
 import { logger } from '../logger.js'
 import { createComposer } from '../services/composer.js'
 import { dispatchCampaign, type SendJobData } from '../services/dispatch.js'
 import { sendToContact, type SendEngineDeps } from '../services/sendEngine.js'
+
+import { openSession } from './session.js'
 
 /**
  * The API as the end-to-end tests run it (e2e/, roadmap #89).
@@ -136,39 +137,8 @@ outer.post('/e2e/session', (_req, res, next) => {
       throw new Error('The end-to-end account was not created')
     }
 
-    const sid = randomUUID()
-    await new Promise<void>((resolve, reject) => {
-      store.set(
-        sid,
-        {
-          cookie: {
-            originalMaxAge: 3_600_000,
-            expires: new Date(Date.now() + 3_600_000),
-            httpOnly: true,
-            path: '/',
-          },
-          passport: { user: userId },
-        } as unknown as session.SessionData,
-        (err) => {
-          if (err) {
-            reject(err instanceof Error ? err : new Error('Session store failed'))
-          } else {
-            resolve()
-          }
-        },
-      )
-    })
-
-    // Signed the way express-session signs its cookie.
-    const signature = createHmac('sha256', env.sessionSecret)
-      .update(sid)
-      .digest('base64')
-      .replace(/=+$/, '')
-
-    res.json({
-      name: SESSION_COOKIE_NAME,
-      value: encodeURIComponent(`s:${sid}.${signature}`),
-    })
+    const { name, value } = await openSession(store, userId, env.sessionSecret)
+    res.json({ name, value })
   })().catch(next)
 })
 

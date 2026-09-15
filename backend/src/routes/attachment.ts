@@ -1,6 +1,6 @@
 import express, { Router } from 'express'
 
-import { isUuid, requireAuth } from '../middleware/auth.js'
+import { campaignIdParam, requireAuth, signedInUserId } from '../middleware/auth.js'
 import {
   AttachmentRejected,
   MAX_ATTACHMENT_BYTES,
@@ -42,11 +42,9 @@ export function createAttachmentRouter(campaigns: CampaignRepository): Router {
 
   router.use(requireAuth)
 
-  const userId = (req: { user?: unknown }): string => (req.user as { id: string }).id
-
-  const load = async (req: { params: Record<string, unknown>; user?: unknown }) => {
-    const raw: unknown = req.params.id
-    return isUuid(raw) ? campaigns.findForUser(raw, userId(req)) : null
+  const load = async (req: { params: unknown; user?: unknown }) => {
+    const id = campaignIdParam(req)
+    return id ? campaigns.findForUser(id, signedInUserId(req)) : null
   }
 
   router.post(

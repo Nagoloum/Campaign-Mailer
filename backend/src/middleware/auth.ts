@@ -13,6 +13,26 @@ export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID.test(value)
 }
 
+/** The signed-in user's id. Only behind requireAuth, which guarantees there is one. */
+export function signedInUserId(req: { user?: unknown }): string {
+  return (req.user as { id: string }).id
+}
+
+/**
+ * The campaign id from the path, or null.
+ *
+ * Express types a route parameter as string | string[] once a middleware
+ * precedes the handler, and as {} on a router mounted with mergeParams, though
+ * the parent path fills it at runtime. The shape is checked before the value
+ * reaches Postgres, because `WHERE id = $1` against a uuid column raises a
+ * syntax error on anything else, which would answer 500 where an unknown id
+ * answers 404 and let the two be told apart.
+ */
+export function campaignIdParam(req: { params: unknown }): string | null {
+  const id = (req.params as Record<string, unknown>).id
+  return isUuid(id) ? id : null
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const user = req.user as { id: string } | undefined
 
@@ -51,12 +71,9 @@ export function createRequireCampaignOwner(
       return
     }
 
-    // Express 5 types a route parameter as string | string[], because a
-    // wildcard can match several segments. Only a single value is a candidate.
-    const raw: unknown = req.params.id
-    const campaignId = typeof raw === 'string' ? raw : ''
+    const campaignId = campaignIdParam(req)
 
-    if (!campaignId || !UUID.test(campaignId)) {
+    if (!campaignId) {
       res.status(404).json({ error: 'Campaign not found' })
       return
     }

@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { createHmac, randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, describe, it } from 'node:test'
@@ -7,7 +6,7 @@ import { after, before, describe, it } from 'node:test'
 import session from 'express-session'
 import pg from 'pg'
 
-import { SESSION_COOKIE_NAME } from '../config/session.js'
+import { openSession } from '../e2e/session.js'
 
 /**
  * The API over HTTP, as the web app calls it, against a real PostgreSQL.
@@ -52,36 +51,8 @@ async function signIn(name: string): Promise<{ id: string; cookie: string }> {
   const id = rows[0]?.id
   assert.ok(id)
 
-  const sid = randomUUID()
-  const expires = new Date(Date.now() + 60 * 60 * 1000)
-  await new Promise<void>((resolve, reject) => {
-    store.set(
-      sid,
-      {
-        cookie: { originalMaxAge: 3_600_000, expires, httpOnly: true, path: '/' },
-        passport: { user: id },
-      } as unknown as session.SessionData,
-      (err) => {
-        if (err) {
-          reject(err instanceof Error ? err : new Error('Session store failed'))
-        } else {
-          resolve()
-        }
-      },
-    )
-  })
-
-  // cookie-signature, as express-session applies it: HMAC-SHA256, base64
-  // without padding, prefixed with "s:".
-  const signature = createHmac('sha256', SESSION_SECRET)
-    .update(sid)
-    .digest('base64')
-    .replace(/=+$/, '')
-
-  return {
-    id,
-    cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(`s:${sid}.${signature}`)}`,
-  }
+  const { header } = await openSession(store, id, SESSION_SECRET)
+  return { id, cookie: header }
 }
 
 async function call(

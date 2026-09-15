@@ -1,6 +1,11 @@
 import { Router, type RequestHandler } from 'express'
 
-import { isUuid, requireAuth } from '../middleware/auth.js'
+import {
+  campaignIdParam,
+  isUuid,
+  requireAuth,
+  signedInUserId,
+} from '../middleware/auth.js'
 import { validateBody } from '../middleware/validate.js'
 import {
   addContactSchema,
@@ -33,19 +38,11 @@ export function createContactRouter({ campaigns, contacts }: ContactRouterDeps):
 
   router.use(requireAuth)
 
-  const userId = (req: { user?: unknown }): string => (req.user as { id: string }).id
-
   /** Resolves the campaign, or answers 404 and stops. */
   const withCampaign: RequestHandler = (req, res, next) => {
     void (async () => {
-      const raw: unknown = req.params.id
-
-      if (!isUuid(raw)) {
-        res.status(404).json({ error: 'Campaign not found' })
-        return
-      }
-
-      const campaign = await campaigns.findForUser(raw, userId(req))
+      const id = campaignIdParam(req)
+      const campaign = id ? await campaigns.findForUser(id, signedInUserId(req)) : null
 
       if (!campaign) {
         res.status(404).json({ error: 'Campaign not found' })

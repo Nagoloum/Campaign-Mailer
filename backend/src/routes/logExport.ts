@@ -1,6 +1,6 @@
 import { Router } from 'express'
 
-import { isUuid, requireAuth } from '../middleware/auth.js'
+import { campaignIdParam, requireAuth, signedInUserId } from '../middleware/auth.js'
 import type { CampaignRepository } from '../services/campaigns.js'
 import { logsToCsv, type LogExportRepository } from '../services/logExport.js'
 
@@ -20,14 +20,10 @@ export function createLogExportRouter({ campaigns, logs }: LogExportRouterDeps):
 
   router.use(requireAuth)
 
-  const userId = (req: { user?: unknown }): string => (req.user as { id: string }).id
-
   router.get('/', (req, res, next) => {
     void (async () => {
-      // Typed as {} on a route mounted at '/', though mergeParams fills it from
-      // the parent path at runtime.
-      const raw: unknown = (req.params as Record<string, unknown>).id
-      const campaign = isUuid(raw) ? await campaigns.findForUser(raw, userId(req)) : null
+      const id = campaignIdParam(req)
+      const campaign = id ? await campaigns.findForUser(id, signedInUserId(req)) : null
 
       if (!campaign) {
         res.status(404).json({ error: 'Campaign not found' })
