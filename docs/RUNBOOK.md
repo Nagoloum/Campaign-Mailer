@@ -212,6 +212,53 @@ Error reporting is off until a DSN is set.
 
 ---
 
+## Restoring the database
+
+The worker writes a copy of the data to the bucket every day, under `backups/`,
+as gzipped JSON lines, and keeps the last 30. The schema is not in the copy: it
+comes from the migrations, which run before the API starts.
+
+The restore is not a procedure written on paper and never run: it is the
+function `restoreBackup`, exercised end to end on every test run
+(`backup.integration.test.ts` writes rows, empties every table, restores, and
+compares).
+
+**Restoring replaces all the data.** Do it only after a loss, never to fix one
+row.
+
+1. **Pick the copy.** The keys are dated: `backups/2026-09-16T02-00-00-000Z.jsonl.gz`.
+
+   ```bash
+   npm run backup:list --workspace backend
+   ```
+
+2. **Check what is in it before touching anything**: the command prints the row
+   counts per table without writing.
+
+   ```bash
+   npm run backup:inspect --workspace backend -- backups/<key>
+   ```
+
+3. **Restore**, on the environment whose `DATABASE_URL` is set in the shell. It
+   empties the five tables and inserts the copy in one transaction: either the
+   whole copy lands, or nothing changes.
+
+   ```bash
+   npm run backup:restore --workspace backend -- backups/<key> --yes
+   ```
+
+   Without `--yes` it refuses and changes nothing.
+
+4. **Check the application**, not just the row counts: sign in, open a campaign,
+   and confirm the contact statuses match what the logs say.
+
+What the copy does not hold: the attachments (they are in the same bucket, under
+`campaigns/`, and are not deleted by a database loss), the sessions (everyone
+signs in again), and the queue (the plan re-queues every pending contact within
+fifteen minutes).
+
+---
+
 ## Other procedures
 
 - **Rotating the encryption key**: [security.md](security.md#routine-rotation) (and, if the key leaked, the section after it).

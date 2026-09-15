@@ -22,6 +22,10 @@
     "migrate:latest": "npm run migrate -- up",
     "migrate:down": "npm run migrate -- down",
     "migrate:create": "npm run migrate -- create",
+    "backup:list": "tsx --env-file-if-exists=.env src/scripts/backup.ts list",
+    "backup:create": "tsx --env-file-if-exists=.env src/scripts/backup.ts create",
+    "backup:inspect": "tsx --env-file-if-exists=.env src/scripts/backup.ts inspect",
+    "backup:restore": "tsx --env-file-if-exists=.env src/scripts/backup.ts restore",
     "rotate:encryption-key": "tsx --env-file-if-exists=.env src/scripts/rotateEncryptionKey.ts"
   },
   "dependencies": {

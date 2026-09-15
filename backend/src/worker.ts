@@ -17,6 +17,7 @@ import {
 } from './jobs/processors.js'
 import { createQueues, type CampaignJobData } from './jobs/queues.js'
 import { logger } from './logger.js'
+import { createBackup, pruneBackups } from './services/backup.js'
 import { createComposer } from './services/composer.js'
 import type { SendJobData } from './services/dispatch.js'
 import { createTokenCipher } from './services/encryption.js'
@@ -35,7 +36,13 @@ import {
 } from './services/alerts.js'
 import { createGmailGateway } from './services/gmail.js'
 import { purgeExpired } from './services/retention.js'
-import { getAttachment } from './services/storage.js'
+import {
+  deleteObject,
+  getAttachment,
+  getObject,
+  listKeys,
+  putObject,
+} from './services/storage.js'
 import {
   createAccessTokenProvider,
   createGoogleTokenEndpoint,
@@ -292,6 +299,41 @@ function purgeOld(): void {
 const retentionTimer = setInterval(purgeOld, RETENTION_EVERY_MS)
 purgeOld()
 
+/**
+ * Once a day, a copy of the data to the bucket, and the copies older than a
+ * month deleted (services/backup.ts). Run from the worker, the process that is
+ * always there; a missed day costs a day of history, not the backup.
+ */
+const BACKUP_EVERY_MS = 24 * 60 * 60 * 1000
+
+const backupStore = {
+  put: putObject,
+  get: getObject,
+  list: listKeys,
+  remove: deleteObject,
+}
+
+function backUp(): void {
+  createBackup(pool, backupStore)
+    .then(async (summary) => {
+      log.info(
+        { key: summary.key, bytes: summary.bytes, rows: summary.rows },
+        'Backup written',
+      )
+      const pruned = await pruneBackups(backupStore)
+      if (pruned.length > 0) {
+        log.info({ deleted: pruned.length }, 'Old backups deleted')
+      }
+    })
+    .catch((err: unknown) => {
+      log.error({ err }, 'Backup failed')
+      reportError(err, { service: 'worker', job: 'backup' })
+    })
+}
+
+const backupTimer = setInterval(backUp, BACKUP_EVERY_MS)
+backUp()
+
 /** The sign of life the API's readiness report and the alerts read (jobs/heartbeat.ts). */
 function beat(): void {
   writeHeartbeat(connection).catch((err: unknown) => {
@@ -316,6 +358,7 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(idleTimer)
   clearInterval(retentionTimer)
   clearInterval(heartbeatTimer)
+  clearInterval(backupTimer)
 
   setTimeout(() => {
     log.error('Forced exit after shutdown timeout')

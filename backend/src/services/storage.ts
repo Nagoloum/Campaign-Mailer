@@ -44,6 +44,69 @@ const client = new S3Client({
   forcePathStyle: true,
 })
 
+/**
+ * The bucket, for objects that are not attachments: database backups today.
+ *
+ * Separate functions rather than exporting the client, so every caller goes
+ * through the same bucket and the same error handling.
+ */
+export async function putObject(
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.storage.bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  )
+}
+
+export async function getObject(key: string): Promise<Buffer> {
+  const result = await client.send(
+    new GetObjectCommand({ Bucket: env.storage.bucket, Key: key }),
+  )
+
+  if (!result.Body) {
+    throw new Error(`The stored object ${key} has no content`)
+  }
+
+  return Buffer.from(await result.Body.transformToByteArray())
+}
+
+/** Keys under a prefix, oldest first by name, so a dated prefix sorts by date. */
+export async function listKeys(prefix: string): Promise<string[]> {
+  const keys: string[] = []
+  let continuationToken: string | undefined
+
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: env.storage.bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    )
+
+    for (const object of page.Contents ?? []) {
+      if (object.Key) {
+        keys.push(object.Key)
+      }
+    }
+
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined
+  } while (continuationToken)
+
+  return keys.sort()
+}
+
+export async function deleteObject(key: string): Promise<void> {
+  await client.send(new DeleteObjectCommand({ Bucket: env.storage.bucket, Key: key }))
+}
+
 export async function putAttachment(
   campaignId: string,
   body: Buffer,
