@@ -12,25 +12,13 @@ Intended users: students sending applications, recruiters, and small B2B prospec
 
 ## Status
 
-**Phase 6 — security and data protection, awaiting review.** Users can take a copy of their data or delete their account, which revokes Google access; sensitive actions are audited, logs are purged after twelve months, the encryption key can be rotated, and the terms, privacy policy and legal notice are published and accepted at first sign-in. Phase 5, dashboard and statistics, is complete: The home page shows how much of the account's 24-hour sending ceiling is spent and what goes out next; each launched campaign has its statistics, a chart of sends per day and a CSV export of its log. Phase 4, the send engine, is complete: A user signs in with Google, writes a campaign, imports contacts, attaches a CV, sets the pace, and launches it. A separate worker process plans each campaign in its own time zone and sends one message at a time from the user's Gmail account, under a daily ceiling, without ever sending a contact the same email twice. The real test (#67) passed on 14 September 2026: five emails to five controlled addresses, all accepted by Gmail, eleven seconds apart, none sent twice.
+**Phase 7 — tests, observability and documentation, awaiting review.** Structured logs carry a request id and a job id; errors reach Sentry once a DSN is set; `/api/health` and `/api/ready` report the process, its dependencies, the queue depth and the worker's heartbeat; alerts fire on a send error rate above 5 %, a stuck queue and a stopped worker. The backend suite runs on a throwaway database schema with coverage enforced (91 % of lines overall, 97 % in `services/`), and a Playwright test drives the whole journey in a browser. A runbook and an architecture document are in `docs/`.
+
+Phases 0 to 6 are complete: sign-in with Google, campaign editing, CSV import, attachments, the send engine (real test passed on 14 September 2026: five emails, all accepted, none sent twice), the dashboard and statistics, and data protection (export, account deletion, audit log, retention, key rotation, published terms).
 
 The plan of record is [ROADMAP.md](ROADMAP.md): ten phases, from an empty repository to public launch, each with work items, a definition of done and its own risks.
 
-Current progress against the roadmap:
-
-- [x] Git identity and repository conventions
-- [x] Monorepo root: license, ignore rules, line-ending policy, editor config, workspaces
-- [x] Project `CLAUDE.md`
-- [x] Frontend workspace (React 19 + Vite + TypeScript + Tailwind + React Router)
-- [x] Backend workspace (Express + TypeScript)
-- [x] Quality tooling (oxlint, ESLint, Prettier, husky, lint-staged)
-- [x] Environment templates for both workspaces
-- [x] Hosted services wired up (Neon, Upstash, Cloudflare R2 — the R2 token is scoped to the one bucket)
-- [x] Initial migration (users, campaigns, contacts, logs)
-- [x] CI pipeline (GitHub Actions) — written, but not running: Actions is disabled on the account
-- [x] Tracker populated from the roadmap (128 issues, 10 milestones)
-- [x] Google Cloud project and OAuth credentials (a real account has signed in and holds a refresh token)
-- [ ] Google verification request filed — until it is, the consent screen is capped at the test users, and refresh tokens expire after seven days
+Still open from Phase 0: the Google verification request. Until it is filed and granted, the consent screen is capped at the test users and refresh tokens expire after seven days.
 
 ---
 
@@ -38,16 +26,20 @@ Current progress against the roadmap:
 
 Decided on 10 September 2026. The reasoning, including three deliberate departures from the specification, is in the decision table of [ROADMAP.md](ROADMAP.md#phase-0--fondations-et-décisions-gelées).
 
-| Layer       | Choice                                                        |
-| ----------- | ------------------------------------------------------------- |
-| Frontend    | React 19, Vite, TypeScript, Tailwind CSS, React Router        |
-| Backend     | Node.js, Express, TypeScript                                  |
-| Database    | PostgreSQL on Neon                                            |
-| Queue       | BullMQ on Redis (Upstash)                                     |
-| Email       | Gmail API (`users.messages.send`) over OAuth 2.0              |
-| Auth        | Passport.js, Google OAuth 2.0 strategy                        |
-| Attachments | Cloudflare R2, S3-compatible                                  |
-| Hosting     | Vercel (frontend), Railway (backend); production database TBD |
+| Layer         | Choice                                                        |
+| ------------- | ------------------------------------------------------------- |
+| Frontend      | React 19, Vite, TypeScript, Tailwind CSS, React Router        |
+| Backend       | Node.js, Express 5, TypeScript                                |
+| Database      | PostgreSQL on Neon                                            |
+| Queue         | BullMQ on Redis (Upstash)                                     |
+| Email         | Gmail API (`users.messages.send`) over OAuth 2.0              |
+| Auth          | Passport.js, Google OAuth 2.0 strategy                        |
+| Attachments   | Cloudflare R2, S3-compatible                                  |
+| Observability | pino (JSON logs), Sentry                                      |
+| Tests         | Node's test runner through tsx, Playwright                    |
+| Hosting       | Vercel (frontend), Railway (backend); production database TBD |
+
+How the pieces fit, and how a campaign becomes messages: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -56,11 +48,15 @@ Decided on 10 September 2026. The reasoning, including three deliberate departur
 ```text
 campaign-mailer/
 ├── frontend/           React + Vite single-page application
-├── backend/            Express API, workers and migrations
+├── backend/            Express API, send worker, migrations
+│   ├── src/            routes, middleware, services, jobs
+│   ├── migrations/     SQL migrations, each with its rollback
+│   └── scripts/        migration wrapper, throwaway test database
+├── e2e/                Playwright end-to-end tests
+├── docs/               Architecture, runbook, send engine, security, OAuth setup
 ├── ROADMAP.md          Plan of record, phase by phase
-├── CONTRIBUTING.md     Conventions and review process
+├── CONTRIBUTING.md     How work is done in this repository
 ├── CLAUDE.md           Repository guide for Claude Code
-├── docs/               Setup procedures and, from Phase 7, the runbook
 ├── LICENSE             Proprietary. All rights reserved.
 └── package.json        npm workspaces root
 ```
@@ -69,11 +65,12 @@ campaign-mailer/
 
 ## Requirements
 
-- Node.js 22 or later, npm 10 or later
-- Accounts on Neon (PostgreSQL), Upstash (Redis) and Cloudflare R2 (attachment storage). All three are used in development as well as in production, so nothing has to be installed locally and no Docker is needed. All three have a free tier that covers development.
-- A Google Cloud project with the Gmail API enabled and OAuth 2.0 web credentials. Step by step in [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
+- Node.js 24 (see `.nvmrc`; 22 is the minimum), npm 10 or later.
+- Accounts on **Neon** (PostgreSQL), **Upstash** (Redis) and **Cloudflare R2** (attachment storage). The same hosted services are used in development and in production, so nothing is installed locally and Docker is not needed. All three free tiers cover development.
+- A **Google Cloud project** with the Gmail API enabled and OAuth 2.0 web credentials. Step by step in [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
+- Optional: a **Sentry** project, for error reporting and alerts.
 
-On Windows, set the PowerShell execution policy before installing the git hooks, or they will not run:
+On Windows, allow local scripts before installing, or the git hooks will not run:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -89,7 +86,7 @@ cd Campaign-Mailer
 npm install
 ```
 
-Copy the environment templates and fill them in. Each variable in them says which roadmap phase first reads it, so only the Phase 0 block has to be filled to boot.
+Copy the environment templates, then fill them in (see the next section).
 
 ```bash
 cp backend/.env.example backend/.env
@@ -102,51 +99,98 @@ cp frontend/.env.example frontend/.env
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-`ENCRYPTION_KEY` protects the stored Google tokens. Losing it makes every stored token undecryptable and forces every user to reconnect their account, so keep it in a secret manager as well as in the file.
-
-Run the database migrations, then start both workspaces.
+Apply the migrations, then start the API and the web app:
 
 ```bash
 npm run migrate:latest
 npm run dev
 ```
 
+The web app is at <http://localhost:5173>; it proxies `/api` to the API on port 3000. Sign in with a Google account listed as a test user on the OAuth consent screen.
+
+The send worker is not started by `npm run dev`: an idle worker spends Redis commands, which the Upstash free tier counts. Start it in a second terminal only when you want campaigns to send:
+
+```bash
+npm run dev:worker
+```
+
+---
+
+## Environment variables
+
+Each template explains every variable in place. The ones the backend refuses to start without are marked required.
+
+### `backend/.env`
+
+| Variable                                                               | Required                 | Purpose                                                                                                      |
+| ---------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                                                         | yes                      | Neon **pooled** connection (host contains `-pooler`), `sslmode=verify-full`. Used by the API and the worker. |
+| `DATABASE_DIRECT_URL`                                                  | for migrations and tests | Neon **direct** connection (no `-pooler`). Migrations and the throwaway test schemas use it.                 |
+| `REDIS_URL`                                                            | yes                      | Upstash `rediss://` URL. Sessions and the queue.                                                             |
+| `SESSION_SECRET`                                                       | yes                      | Signs the session cookie, at least 32 characters. Changing it signs everyone out.                            |
+| `ENCRYPTION_KEY`                                                       | yes                      | 64 hex characters. Encrypts the Google tokens at rest. Losing it forces every user to reconnect.             |
+| `ENCRYPTION_KEY_PREVIOUS`                                              | no                       | Only during a key rotation. See [docs/security.md](docs/security.md).                                        |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                             | yes                      | OAuth web client.                                                                                            |
+| `GOOGLE_CALLBACK_URL`                                                  | yes                      | Must match an authorized redirect URI exactly.                                                               |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes                      | Cloudflare R2 bucket and a token scoped to it. `S3_REGION` defaults to `auto`.                               |
+| `FRONTEND_URL`                                                         | no                       | Origin of the web app, for CORS and redirects. Defaults to `http://localhost:5173`.                          |
+| `PORT`                                                                 | no                       | API port, 3000 by default.                                                                                   |
+| `GMAIL_DAILY_LIMIT`                                                    | no                       | Messages per account over a rolling 24 hours. 450 by default, refused above 500.                             |
+| `LOG_LEVEL`                                                            | no                       | `debug` in development, `info` in production.                                                                |
+| `SENTRY_DSN`                                                           | no                       | Error reporting. Off when empty.                                                                             |
+| `WORKER_MONITOR`                                                       | no                       | Worker and queue alerts from the API. On in production, off elsewhere.                                       |
+
+### `frontend/.env`
+
+Everything here ends up in the browser bundle: no secret belongs in it.
+
+| Variable           | Purpose                                                                   |
+| ------------------ | ------------------------------------------------------------------------- |
+| `VITE_BACKEND_URL` | Where the dev server proxies `/api`. Defaults to `http://localhost:3000`. |
+| `VITE_SENTRY_DSN`  | Browser error reporting. Off when empty.                                  |
+| `VITE_LEGAL_*`     | The publisher's identity on the legal notice.                             |
+
 ---
 
 ## Commands
 
-Run from the repository root. Each one delegates to every workspace that defines the script.
+Run from the repository root.
 
-| Command                  | Purpose                                           |
-| ------------------------ | ------------------------------------------------- |
-| `npm run dev`            | Start the API and the web app in watch mode       |
-| `npm run dev:backend`    | Start the API alone on port 3000                  |
-| `npm run dev:worker`     | Start the send worker (only while testing sends)  |
-| `npm run dev:frontend`   | Start the web app alone on port 5173              |
-| `npm run build`          | Produce production builds                         |
-| `npm run lint`           | oxlint on the frontend, ESLint on the backend     |
-| `npm run lint:fix`       | Same, applying the fixes it can make              |
-| `npm run format`         | Rewrite the repository with Prettier              |
-| `npm run format:check`   | Fail if anything is unformatted                   |
-| `npm run typecheck`      | Run `tsc --noEmit` in both workspaces             |
-| `npm test`               | Run the test suites (Node's runner, via tsx)      |
-| `npm run verify`         | Format check, lint, typecheck and build, in order |
-| `npm run migrate:latest` | Apply pending database migrations                 |
-| `npm run migrate:down`   | Roll back the last migration                      |
+| Command                  | Purpose                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `npm run dev`            | API and web app in watch mode                                                   |
+| `npm run dev:worker`     | The send worker in watch mode (only while testing sends)                        |
+| `npm run build`          | Production builds of both workspaces                                            |
+| `npm run verify`         | Format check, lint, typecheck and build: the gate before every commit           |
+| `npm run lint`           | oxlint on the frontend, ESLint on the backend                                   |
+| `npm run format`         | Rewrite the repository with Prettier                                            |
+| `npm run typecheck`      | `tsc --noEmit` in both workspaces                                               |
+| `npm test`               | Backend suite; the database tests skip when `DATABASE_URL` is unset             |
+| `npm run test:coverage`  | Whole backend suite on a throwaway schema, failing under the coverage objective |
+| `npm run test:e2e`       | Playwright journey in Chromium on a throwaway schema                            |
+| `npm run migrate:latest` | Apply pending migrations                                                        |
+| `npm run migrate:down`   | Roll back the last migration                                                    |
 
-Create a migration with `npm run migrate:create --workspace backend -- <name>`. Migrations run against `DATABASE_DIRECT_URL`, never the pooled connection; the wrapper refuses to start if that variable points at a `-pooler` host.
+`npm run test:integration --workspace backend` runs the whole suite on a throwaway schema without coverage. The first `npm run test:e2e` needs the browser once: `npx playwright install chromium`.
+
+Create a migration with `npm run migrate:create --workspace backend -- <name>`.
 
 ---
 
-## Quality tooling
+## Tests
 
-Two linters, each where it is the better tool.
+- **Unit and route tests** sit beside the code as `*.test.ts` and run with Node's test runner through tsx.
+- **Integration tests** (`*.integration.test.ts`) run against PostgreSQL. `test:coverage` and `test:integration` create a schema named `test_<time>_<pid>` on the direct connection, apply every migration into it, run the suite there and drop it, so the tests never touch development data.
+- **End-to-end**: `e2e/journey.spec.ts` signs in, accepts the terms, creates a campaign, imports a CSV, launches and follows it until both messages are out. The API runs from `backend/src/e2e/server.ts`, where Google sign-in and Gmail are replaced; that file refuses to start outside a test schema and is excluded from the build.
 
-The frontend runs **oxlint**, which ships with the Vite template and is fast enough to stay out of the way. The backend runs **ESLint** with `typescript-eslint` type-aware rules and `eslint-plugin-security`, because that workspace handles OAuth tokens, attacker-controlled CSV values and a send engine whose defects reach real recipients. `no-floating-promises` alone justifies it: an unawaited promise in the send engine is a send whose failure nobody sees.
+---
 
-**Prettier** formats everything from a single config at the root, so neither workspace has a style opinion of its own.
+## Operating it
 
-**husky** runs `lint-staged` before a commit and `npm run typecheck` before a push. Hooks install themselves on `npm install`.
+- Health: `GET /api/health` (the process is up), `GET /api/ready` (database, sessions and queue answer; queue depth; worker heartbeat).
+- Incidents and procedures: [docs/RUNBOOK.md](docs/RUNBOOK.md).
+- Security, key rotation, retention: [docs/security.md](docs/security.md).
+- How sending works and why: [docs/send-engine.md](docs/send-engine.md).
 
 ---
 
