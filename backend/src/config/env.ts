@@ -120,6 +120,13 @@ export const env = {
     secretAccessKey: required('S3_SECRET_ACCESS_KEY'),
   },
 
+  // Whether the API watches the worker and the queue (services/alerts.ts). On
+  // in production; off elsewhere, where the worker is usually not running and
+  // would read as stopped.
+  monitorWorker:
+    (process.env.WORKER_MONITOR ?? (nodeEnv() === 'production' ? 'true' : 'false')) ===
+    'true',
+
   // Error reporting stays off when empty. See services/errorReporting.ts.
   sentryDsn: process.env.SENTRY_DSN ?? '',
   // Tags each error with the deployed commit; Railway sets it on every deploy.

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { initErrorReporting, redact, reportError, scrubEvent } from './errorReporting.js'
+import {
+  initErrorReporting,
+  redact,
+  reportAlert,
+  reportError,
+  scrubEvent,
+} from './errorReporting.js'
 
 function fakeSdk() {
   const calls = { init: [] as unknown[], capture: [] as unknown[][] }
@@ -12,6 +18,10 @@ function fakeSdk() {
       return undefined
     },
     captureException: (...args: unknown[]) => {
+      calls.capture.push(args)
+      return 'event-id'
+    },
+    captureMessage: (...args: unknown[]) => {
       calls.capture.push(args)
       return 'event-id'
     },
@@ -84,6 +94,31 @@ describe('error reporting', () => {
           },
           user: { id: 'u1' },
           fingerprint: ['send-refused'],
+        },
+      ],
+    ])
+  })
+})
+
+describe('reportAlert', () => {
+  it('opens one issue per kind of alert, tagged for an alert rule', () => {
+    const { sdk, calls } = fakeSdk()
+    initErrorReporting({ ...options, dsn: 'https://k@o1.ingest.sentry.io/1' }, sdk)
+
+    reportAlert({
+      kind: 'worker_stopped',
+      message: 'Worker stopped: no heartbeat',
+      details: {},
+    })
+
+    assert.deepEqual(calls.capture, [
+      [
+        'Worker stopped: no heartbeat',
+        {
+          level: 'error',
+          tags: { alert: 'worker_stopped' },
+          extra: {},
+          fingerprint: ['alert', 'worker_stopped'],
         },
       ],
     ])

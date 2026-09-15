@@ -23,9 +23,16 @@ import { createTokenCipher } from './services/encryption.js'
 import {
   closeErrorReporting,
   initErrorReporting,
+  reportAlert,
   reportError,
   type ErrorContext,
 } from './services/errorReporting.js'
+import {
+  createAlertTracker,
+  readSendCounts,
+  runAlertChecks,
+  sendErrorRateAlert,
+} from './services/alerts.js'
 import { createGmailGateway } from './services/gmail.js'
 import { purgeExpired } from './services/retention.js'
 import { getAttachment } from './services/storage.js'
@@ -215,6 +222,24 @@ function checkIdle(): void {
     })
 }
 
+const alertTracker = createAlertTracker()
+
+/**
+ * The send error rate alert. Called after each plan, which has just woken the
+ * database, so Neon is never woken for this alone.
+ */
+function checkSendErrorRate(): void {
+  runAlertChecks({
+    watched: ['send_error_rate'],
+    checks: async () => [sendErrorRateAlert(await readSendCounts(pool))],
+    tracker: alertTracker,
+    log,
+    report: reportAlert,
+  }).catch((err: unknown) => {
+    log.warn({ err }, 'Send error rate check failed')
+  })
+}
+
 /**
  * Plans every campaign from this process rather than from a repeatable job.
  *
@@ -227,6 +252,7 @@ function planAll(): void {
   processDispatch({})
     .then(() => {
       checkIdle()
+      checkSendErrorRate()
     })
     .catch((err: unknown) => {
       log.error({ err }, 'Scheduled dispatch failed')

@@ -8,7 +8,18 @@ import { createQueueConnection } from './jobs/connection.js'
 import { readHeartbeat } from './jobs/heartbeat.js'
 import { createQueues } from './jobs/queues.js'
 import { logger } from './logger.js'
-import { closeErrorReporting, initErrorReporting } from './services/errorReporting.js'
+import {
+  createAlertTracker,
+  queueStuckAlert,
+  readQueueHealth,
+  runAlertChecks,
+  workerStoppedAlert,
+} from './services/alerts.js'
+import {
+  closeErrorReporting,
+  initErrorReporting,
+  reportAlert,
+} from './services/errorReporting.js'
 import { checkReadiness } from './services/readiness.js'
 
 const log = logger.child({ service: 'api' })
@@ -68,12 +79,45 @@ const server = app.listen(env.port, () => {
 })
 
 /**
+ * Watches the worker and the queue from here, because a stopped worker cannot
+ * say so itself. Redis only: four commands every five minutes, and the
+ * database is left to sleep. One API instance should run it, or each sends
+ * the same alert.
+ */
+const MONITOR_EVERY_MS = 5 * 60 * 1000
+const monitorTracker = createAlertTracker()
+
+function monitorWorker(): void {
+  runAlertChecks({
+    watched: ['worker_stopped', 'queue_stuck'],
+    checks: async () => {
+      const [lastSeen, health] = await Promise.all([
+        readHeartbeat(queueConnection),
+        readQueueHealth(queues.queue),
+      ])
+      const now = Date.now()
+      return [workerStoppedAlert(lastSeen, now), queueStuckAlert(health, now)]
+    },
+    tracker: monitorTracker,
+    log,
+    report: reportAlert,
+  }).catch((err: unknown) => {
+    log.warn({ err }, 'Worker monitor check failed')
+  })
+}
+
+const monitorTimer = env.monitorWorker
+  ? setInterval(monitorWorker, MONITOR_EVERY_MS)
+  : undefined
+
+/**
  * Graceful shutdown. The host sends SIGTERM on every deploy. Sends happen in the
  * worker process, which has its own shutdown in worker.ts; this one only has to
  * stop taking requests and release its connections.
  */
 function shutdown(signal: string): void {
   log.info({ signal }, 'Closing server')
+  clearInterval(monitorTimer)
 
   server.close((err) => {
     if (err) {

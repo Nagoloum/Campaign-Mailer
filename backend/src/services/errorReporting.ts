@@ -16,7 +16,7 @@ import * as Sentry from '@sentry/node'
  * the free quota on requests that went well.
  */
 
-type Sdk = Pick<typeof Sentry, 'init' | 'captureException' | 'close'>
+type Sdk = Pick<typeof Sentry, 'init' | 'captureException' | 'captureMessage' | 'close'>
 export type SentryEvent = Parameters<NonNullable<Sentry.NodeOptions['beforeSend']>>[0]
 
 /** Enough to find the request or the job again, never the content of either. */
@@ -134,6 +134,23 @@ export function initErrorReporting(
 
 export function reportError(err: unknown, context: ErrorContext = {}): void {
   active?.captureException(err, toCaptureContext(context))
+}
+
+/**
+ * An operational alert (services/alerts.ts): one Sentry issue per kind, so a
+ * rule on the `alert` tag can email the owner when it opens or comes back.
+ */
+export function reportAlert(alert: {
+  kind: string
+  message: string
+  details: Record<string, number>
+}): void {
+  active?.captureMessage(alert.message, {
+    level: 'error',
+    tags: { alert: alert.kind },
+    extra: alert.details,
+    fingerprint: ['alert', alert.kind],
+  })
 }
 
 /** Sends what is queued before the process exits. A deploy must not swallow the last error. */
