@@ -120,6 +120,11 @@ export const env = {
     secretAccessKey: required('S3_SECRET_ACCESS_KEY'),
   },
 
+  // Error reporting stays off when empty. See services/errorReporting.ts.
+  sentryDsn: process.env.SENTRY_DSN ?? '',
+  // Tags each error with the deployed commit; Railway sets it on every deploy.
+  release: process.env.RAILWAY_GIT_COMMIT_SHA,
+
   google: {
     clientId: required('GOOGLE_CLIENT_ID'),
     clientSecret: required('GOOGLE_CLIENT_SECRET'),

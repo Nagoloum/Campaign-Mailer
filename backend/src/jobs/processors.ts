@@ -9,6 +9,7 @@ import {
   type DispatchOutcome,
   type SendJobData,
 } from '../services/dispatch.js'
+import { reportError } from '../services/errorReporting.js'
 import {
   pauseCampaign,
   recordFailureById,
@@ -84,6 +85,7 @@ export function createDispatchProcessor(deps: DispatchDeps) {
       } catch (err) {
         // One campaign failing to plan must not starve the others of their day.
         logger.error({ err, campaignId: id }, 'Dispatch failed for a campaign')
+        reportError(err, { service: 'worker', job: 'dispatch', campaignId: id })
       }
     }
 

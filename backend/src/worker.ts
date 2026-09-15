@@ -20,6 +20,12 @@ import { logger } from './logger.js'
 import { createComposer } from './services/composer.js'
 import type { SendJobData } from './services/dispatch.js'
 import { createTokenCipher } from './services/encryption.js'
+import {
+  closeErrorReporting,
+  initErrorReporting,
+  reportError,
+  type ErrorContext,
+} from './services/errorReporting.js'
 import { createGmailGateway } from './services/gmail.js'
 import { purgeExpired } from './services/retention.js'
 import { getAttachment } from './services/storage.js'
@@ -39,6 +45,13 @@ import { createUserRepository } from './services/users.js'
  */
 
 const log = logger.child({ service: 'worker' })
+
+const reporting = initErrorReporting({
+  dsn: env.sentryDsn,
+  environment: env.nodeEnv,
+  release: env.release,
+  service: 'worker',
+})
 
 /** How often every scheduled or running campaign is planned again. */
 const DISPATCH_EVERY_MS = 15 * 60 * 1000
@@ -84,18 +97,22 @@ function isSendJob(job: Job<CampaignJobData>): job is Job<SendJobData> {
 }
 
 /**
- * Every line about a job carries its id, and the campaign and contact it
- * concerns: what `grep jobId` needs to rebuild one send's story across the
- * attempts.
+ * Every line and every reported error about a job carries its id, and the
+ * campaign and contact it concerns: what `grep jobId` needs to rebuild one
+ * send's story across the attempts.
  */
-function jobLogger(job: Job<CampaignJobData>) {
-  return log.child({
-    jobId: job.id,
+function jobContext(job: Job<CampaignJobData>): ErrorContext {
+  return {
+    ...(job.id === undefined ? {} : { jobId: job.id }),
     job: job.name,
     attempt: job.attemptsMade + 1,
-    campaignId: job.data.campaignId,
-    ...(isSendJob(job) ? { contactId: job.data.contactId } : {}),
-  })
+    ...(job.data.campaignId ? { campaignId: job.data.campaignId } : {}),
+    ...(isSendJob(job) ? { contactId: job.data.contactId, userId: job.data.userId } : {}),
+  }
+}
+
+function jobLogger(job: Job<CampaignJobData>) {
+  return log.child(jobContext(job))
 }
 
 const worker = new Worker<CampaignJobData>(
@@ -107,6 +124,27 @@ const worker = new Worker<CampaignJobData>(
       const outcome = await processSend(job.data)
       // The outcome kind only: never the address, never the message.
       jobLog.info({ outcome: outcome.kind }, 'Send job finished')
+
+      // Neither throws, so the failed handler below never sees them.
+      if (outcome.kind === 'failed') {
+        // Usually the recipient, not the code: a warning, grouped into one issue.
+        reportError(new Error('Gmail refused the message'), {
+          ...jobContext(job),
+          service: 'worker',
+          level: 'warning',
+          reason: outcome.reason,
+          fingerprint: ['send-refused'],
+        })
+      } else if (outcome.kind === 'ambiguous') {
+        reportError(
+          new Error('Send outcome unknown: contact marked failed, not retried'),
+          {
+            ...jobContext(job),
+            service: 'worker',
+            fingerprint: ['send-ambiguous'],
+          },
+        )
+      }
       return
     }
 
@@ -127,12 +165,19 @@ const worker = new Worker<CampaignJobData>(
 worker.on('failed', (job, err) => {
   if (!job) {
     log.error({ err }, 'A job failed without a job attached')
+    reportError(err, { service: 'worker' })
     return
   }
 
   const jobLog = jobLogger(job)
   const lastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1)
   jobLog[lastAttempt ? 'error' : 'warn']({ err, lastAttempt }, 'Job failed')
+
+  // An attempt that will be retried is logged, not reported: Gmail's "not now"
+  // is routine, and only running out of attempts needs a person.
+  if (lastAttempt) {
+    reportError(err, { ...jobContext(job), service: 'worker' })
+  }
 
   if (!lastAttempt || !isSendJob(job)) {
     return
@@ -145,6 +190,7 @@ worker.on('failed', (job, err) => {
 
 worker.on('error', (err) => {
   log.error({ err }, 'Worker error')
+  reportError(err, { service: 'worker' })
 })
 
 const idle = createIdleController({
@@ -184,6 +230,7 @@ function planAll(): void {
     })
     .catch((err: unknown) => {
       log.error({ err }, 'Scheduled dispatch failed')
+      reportError(err, { service: 'worker', job: 'dispatch' })
     })
 }
 
@@ -212,6 +259,7 @@ function purgeOld(): void {
     })
     .catch((err: unknown) => {
       log.error({ err }, 'Retention purge failed')
+      reportError(err, { service: 'worker', job: 'retention' })
     })
 }
 
@@ -228,7 +276,7 @@ function beat(): void {
 const heartbeatTimer = setInterval(beat, HEARTBEAT_EVERY_MS)
 beat()
 
-log.info({ env: env.nodeEnv }, 'Worker started')
+log.info({ env: env.nodeEnv, errorReporting: reporting }, 'Worker started')
 
 /**
  * Graceful shutdown. The host sends SIGTERM on every deploy. `close()` waits for
@@ -249,7 +297,7 @@ async function shutdown(signal: string): Promise<void> {
   }, 30_000).unref()
 
   await worker.close()
-  await Promise.allSettled([queues.close(), closePool()])
+  await Promise.allSettled([queues.close(), closePool(), closeErrorReporting()])
   await connection.quit().catch(() => undefined)
 
   process.exit(0)

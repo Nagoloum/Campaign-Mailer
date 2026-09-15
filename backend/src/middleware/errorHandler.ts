@@ -3,6 +3,7 @@ import type { Logger } from 'pino'
 
 import { isProduction } from '../config/env.js'
 import { logger } from '../logger.js'
+import { reportError } from '../services/errorReporting.js'
 
 /**
  * An error whose status and message are safe to send to the client.
@@ -48,6 +49,15 @@ export function errorHandler(
   // connection strings surface in internal messages.
   const log = (req as { log?: Logger }).log ?? logger
   log.error({ err }, 'Unhandled error')
+
+  const { id, user } = req as { id?: unknown; user?: { id?: string } }
+  reportError(err, {
+    service: 'api',
+    method: req.method,
+    path: req.path,
+    ...(typeof id === 'string' ? { requestId: id } : {}),
+    ...(user?.id ? { userId: user.id } : {}),
+  })
 
   res.status(500).json({
     error: isProduction ? 'Internal server error' : String(err),

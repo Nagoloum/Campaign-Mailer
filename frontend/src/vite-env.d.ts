@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_SENTRY_DSN?: string
   readonly VITE_LEGAL_PUBLISHER?: string
   readonly VITE_LEGAL_EMAIL?: string
   readonly VITE_LEGAL_PHONE?: string

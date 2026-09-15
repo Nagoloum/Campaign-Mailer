@@ -8,9 +8,17 @@ import { createQueueConnection } from './jobs/connection.js'
 import { readHeartbeat } from './jobs/heartbeat.js'
 import { createQueues } from './jobs/queues.js'
 import { logger } from './logger.js'
+import { closeErrorReporting, initErrorReporting } from './services/errorReporting.js'
 import { checkReadiness } from './services/readiness.js'
 
 const log = logger.child({ service: 'api' })
+
+const reporting = initErrorReporting({
+  dsn: env.sentryDsn,
+  environment: env.nodeEnv,
+  release: env.release,
+  service: 'api',
+})
 
 // node-redis connects explicitly, and the session store is unusable until it
 // does. Failing here rather than on the first sign-in keeps a misconfigured
@@ -53,7 +61,10 @@ const app = createApp({
 })
 
 const server = app.listen(env.port, () => {
-  log.info({ port: env.port, env: env.nodeEnv }, 'API listening')
+  log.info(
+    { port: env.port, env: env.nodeEnv, errorReporting: reporting },
+    'API listening',
+  )
 })
 
 /**
@@ -76,6 +87,7 @@ function shutdown(signal: string): void {
       closePool(),
       closeRedis(),
       queues.close().then(() => queueConnection.quit()),
+      closeErrorReporting(),
     ])
       .then(() => {
         process.exit(0)

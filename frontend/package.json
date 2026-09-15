@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@sentry/react": "^10.74.0",
     "papaparse": "^5.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
