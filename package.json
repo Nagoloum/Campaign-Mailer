@@ -30,6 +30,7 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspace backend",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run build",
     "migrate:latest": "npm run migrate:latest --workspace backend --if-present",
     "migrate:down": "npm run migrate:down --workspace backend --if-present",
