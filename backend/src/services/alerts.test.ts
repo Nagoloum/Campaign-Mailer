@@ -8,6 +8,7 @@ import {
   QUEUE_STUCK_AFTER_MS,
   createAlertTracker,
   queueStuckAlert,
+  readQueueHealth,
   runAlertChecks,
   sendErrorRateAlert,
   workerStoppedAlert,
@@ -98,6 +99,34 @@ describe('createAlertTracker', () => {
     assert.deepEqual(tracker.update(watched, [], NOW + 1).resolved, ['worker_stopped'])
     assert.deepEqual(tracker.update(watched, [], NOW + 2).resolved, [])
     assert.deepEqual(tracker.update(watched, [stopped], NOW + 3).notify, [stopped])
+  })
+})
+
+describe('readQueueHealth', () => {
+  const queueWith = (waiting: object[], delayed: object[]) =>
+    ({
+      getJobs: () => Promise.resolve(waiting),
+      getDelayed: () => Promise.resolve(delayed),
+    }) as unknown as Parameters<typeof readQueueHealth>[0]
+
+  it('takes the earliest due time across waiting and delayed jobs', async () => {
+    const health = await readQueueHealth(
+      queueWith([{ timestamp: 5_000, delay: 0 }], [{ timestamp: 1_000, delay: 2_000 }]),
+    )
+
+    assert.deepEqual(health, { earliestDueAt: 3_000 })
+  })
+
+  it('counts a job promoted from delayed as due when its delay ended, not when it was queued', async () => {
+    const health = await readQueueHealth(
+      queueWith([{ timestamp: 1_000, delay: 60_000 }], []),
+    )
+
+    assert.deepEqual(health, { earliestDueAt: 61_000 })
+  })
+
+  it('reports nothing due on an empty queue', async () => {
+    assert.deepEqual(await readQueueHealth(queueWith([], [])), { earliestDueAt: null })
   })
 })
 

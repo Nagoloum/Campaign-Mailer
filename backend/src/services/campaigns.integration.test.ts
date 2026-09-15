@@ -43,8 +43,10 @@ after(async () => {
     return
   }
 
-  // The cascade takes the campaigns and contacts with the account.
-  await pool.query("DELETE FROM users WHERE google_id LIKE 'itest-%'")
+  // The cascade takes the campaigns and contacts with the account. By its exact
+  // id: a prefix would also delete the accounts of the files running beside
+  // this one, mid-test.
+  await pool.query('DELETE FROM users WHERE google_id = $1', [`itest-${String(stamp)}`])
   await pool.end()
 })
 
