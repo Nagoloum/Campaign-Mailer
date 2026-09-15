@@ -114,7 +114,7 @@ describe('request logging', () => {
     // customLogLevel chose: error, which pino numbers 50.
     const errored = entries().find((entry) => entry.msg === 'request errored')
     assert.ok(errored, lines.join(''))
-    assert.equal(errored.level, 50)
+    assert.equal(errored.level, 'error')
   })
 
   it('does not log the health check', async () => {

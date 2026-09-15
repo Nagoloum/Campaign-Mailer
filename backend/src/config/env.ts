@@ -64,6 +64,11 @@ function nodeEnv(): NodeEnv {
 export const env = {
   nodeEnv: nodeEnv(),
   port: optionalInteger('PORT', 3000, 1, 65535),
+  // Proxies in front of the API whose X-Forwarded-For entries are trusted: 1
+  // behind Railway alone, 2 when Vercel relays /api to Railway. Too low, and
+  // every anonymous visitor shares the proxy's address in the rate limit; too
+  // high, and a client can forge its own.
+  trustProxyHops: optionalInteger('TRUST_PROXY_HOPS', 1, 0, 5),
   // Protects the Google tokens at rest. Required rather than optional: a
   // process that starts without it would store readable refresh tokens.
   encryptionKey: required('ENCRYPTION_KEY'),

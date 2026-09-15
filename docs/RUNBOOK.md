@@ -20,9 +20,9 @@ How the pieces fit: [ARCHITECTURE.md](ARCHITECTURE.md). Why the send engine beha
 | What happened to one request?          | The user can quote the `x-request-id` response header. Search the API logs for that `req.id`.                                                                                         |
 | What happened to one send?             | Search the worker logs for the `contactId` or `jobId` (`send-<contactId>`). Every attempt is a line.                                                                                  |
 | What broke recently?                   | Sentry, filtered by the `service` tag (`api` or `worker`).                                                                                                                            |
-| Which alerts are firing?               | Sentry issues tagged `alert`, or log lines with an `alert` field at level 50 (error).                                                                                                 |
+| Which alerts are firing?               | Sentry issues tagged `alert`, or log lines with an `alert` field at level `error`.                                                                                                    |
 
-Logs are JSON, one object per line. The fields that matter: `level` (30 info, 40 warn, 50 error), `service`, `msg`, `req.id`, `jobId`, `campaignId`, `contactId`, `outcome`, `alert`. Tokens, cookies and query strings are never in them; recipient addresses are not either.
+Logs are JSON, one object per line. The fields that matter: `level` (`info`, `warn`, `error`), `service`, `msg`, `req.id`, `jobId`, `campaignId`, `contactId`, `outcome`, `alert`. Tokens, cookies and query strings are never in them; recipient addresses are not either.
 
 ---
 
@@ -58,7 +58,7 @@ In development the worker is usually not running, which is why the alert is off 
 
 1. **Is the worker alive?** If `worker.alive` is false, this is [Worker stopped](#worker-stopped).
 2. **Is Redis refusing commands?** Search the worker logs for `Worker error`, or the Upstash console for the daily and monthly command counts. Past the free allowance, Upstash answers `ERR max requests limit exceeded` and nothing moves. Raise the plan, or wait for the reset; the queue resumes by itself.
-3. **Is it failing jobs?** `queue.failed` growing with `Job failed` lines at level 40/50 means the sends themselves fail: see [Sends failing](#sends-failing).
+3. **Is it failing jobs?** `queue.failed` growing with `Job failed` lines at level `warn` or `error` means the sends themselves fail: see [Sends failing](#sends-failing).
 4. **Worker alive, Redis fine, jobs overdue**: restart the worker. A worker that stays paused after a failed idle check is resumed by the next check two minutes later; a restart forces it.
 
 **Do not flush Redis.** Sessions share it: `FLUSHALL` signs every user out. Deleting the queue's keys is not needed either, since the plan re-queues every pending contact within fifteen minutes and a job id per contact prevents doubles.

@@ -38,8 +38,9 @@ export function createApp({
 }: AppDeps): Express {
   const app = express()
 
-  // Behind Railway's proxy, so req.ip and secure cookies need the hop counted.
-  app.set('trust proxy', 1)
+  // Behind Railway's proxy, and in production Vercel's relay too, so req.ip and
+  // secure cookies need the hops counted. See TRUST_PROXY_HOPS in config/env.ts.
+  app.set('trust proxy', env.trustProxyHops)
   app.disable('x-powered-by')
 
   // Before anything else, so every request, refused ones included, gets an id

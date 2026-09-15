@@ -56,7 +56,11 @@ export function createLogger(
             options: { colorize: true, translateTime: 'SYS:HH:MM:ss' },
           },
         }
-      : {}),
+      : {
+          // "error" rather than 50. Railway reads the level as text, and showed
+          // every numeric line as info, errors included.
+          formatters: { level: (label: string) => ({ level: label }) },
+        }),
     ...overrides,
   }
 
