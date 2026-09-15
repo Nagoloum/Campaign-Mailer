@@ -32,6 +32,8 @@ lerna-debug.log*
 
 # Test and coverage
 coverage/
+test-results/
+playwright-report/
 .nyc_output/
 test-results/
 playwright-report/

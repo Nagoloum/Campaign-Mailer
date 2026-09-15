@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "test:watch": "tsx --test --watch \"src/**/*.test.ts\"",
+    "test:e2e": "node scripts/withTestDatabase.mjs npx playwright test --config ../e2e/playwright.config.ts",
     "test:integration": "node scripts/withTestDatabase.mjs tsx --test \"src/**/*.test.ts\"",
     "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage',{recursive:true})\" && node scripts/withTestDatabase.mjs tsx --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"src/**/*.test.ts\" && tsx src/scripts/checkCoverage.ts coverage/lcov.info",
     "start": "node --env-file-if-exists=.env dist/index.js",

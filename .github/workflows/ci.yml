@@ -34,6 +34,20 @@ jobs:
       # Hooks belong to a developer's working copy. Installing them here only
       # slows the run down.
       HUSKY: 0
+      # The tests create a throwaway schema in this service database.
+      DATABASE_DIRECT_URL: postgresql://postgres:postgres@localhost:5432/campaign_mailer
+      # Placeholders: the tests read the configuration at import and never
+      # reach Google, R2 or Redis with it.
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      REDIS_URL: redis://localhost:6379
+      S3_ENDPOINT: https://example.invalid
+      S3_BUCKET: ci-bucket
+      S3_ACCESS_KEY_ID: ci
+      S3_SECRET_ACCESS_KEY: ci
+      GOOGLE_CLIENT_ID: ci
+      GOOGLE_CLIENT_SECRET: ci
+      GOOGLE_CALLBACK_URL: http://localhost:3000/api/auth/google/callback
 
     steps:
       - uses: actions/checkout@v5
@@ -72,20 +86,14 @@ jobs:
       # coverage objective (70 % overall, 90 % in services).
       - name: Test with coverage
         run: npm run test:coverage
-        env:
-          DATABASE_DIRECT_URL: postgresql://postgres:postgres@localhost:5432/campaign_mailer
-          # Placeholders: the tests read the configuration at import and never
-          # reach Google, R2 or Redis with it.
-          ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
-          SESSION_SECRET: ci-session-secret-at-least-32-characters-long
-          REDIS_URL: redis://localhost:6379
-          S3_ENDPOINT: https://example.invalid
-          S3_BUCKET: ci-bucket
-          S3_ACCESS_KEY_ID: ci
-          S3_SECRET_ACCESS_KEY: ci
-          GOOGLE_CLIENT_ID: ci
-          GOOGLE_CLIENT_SECRET: ci
-          GOOGLE_CALLBACK_URL: http://localhost:3000/api/auth/google/callback
+
+      # The journey in a real browser, with Google sign-in and Gmail replaced
+      # (backend/src/e2e/server.ts), on its own throwaway schema.
+      - name: Install the end-to-end browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end
+        run: npm run test:e2e
 
       - name: Build
         run: npm run build

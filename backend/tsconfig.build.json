@@ -3,5 +3,7 @@
   // program so `typecheck` still covers them, but they have no business in
   // dist/, where they would ship to production and pull the test runner in.
   "extends": "./tsconfig.json",
-  "exclude": ["src/**/*.test.ts"]
+  // src/e2e is the API as the browser tests run it, with sign-in and Gmail
+  // replaced. It has no business in a deployed image either.
+  "exclude": ["src/**/*.test.ts", "src/e2e/**"]
 }
