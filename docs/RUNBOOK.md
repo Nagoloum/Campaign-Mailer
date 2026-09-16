@@ -212,6 +212,53 @@ Error reporting is off until a DSN is set.
 
 ---
 
+## Deploying, and going back
+
+Every push to `main` deploys: Railway rebuilds the API and the worker, Vercel
+rebuilds the web app. The API applies the pending migrations before it starts,
+so a deploy that fails to migrate never serves.
+
+**Going back is a deploy of the previous version, not a repair of the running
+one.**
+
+1. **Which layer is broken?** The web app answers from Vercel; everything under
+   `/api` is relayed to Railway. `GET /api/health` tells them apart: a working
+   page with a failing `/api/health` is the API, not the front.
+
+2. **The API or the worker** (Railway):
+
+   ```bash
+   railway status                      # which deployment is live
+   railway logs --service <name>       # why it broke
+   ```
+
+   In the Railway dashboard, open the service, then **Deployments**, and pick
+   the last one that worked: **Redeploy**. It reuses that build, so the code and
+   the variables of the moment come back together.
+
+   A variable alone can be put back without a rollback:
+   `railway variable set NAME=value --service <name>`, which redeploys.
+
+3. **The web app** (Vercel): in the dashboard, **Deployments**, the last good
+   one, then **Promote to Production**. Or `vercel rollback <url>` from the
+   repository.
+
+4. **A migration is the exception.** Rolling the code back does not roll the
+   schema back, and a migration that ran stays. If the schema is the problem:
+
+   ```bash
+   npm run migrate:down --workspace backend   # one migration, on DATABASE_DIRECT_URL
+   ```
+
+   Only when that migration's rollback is safe for the data already written.
+   When in doubt, restore the database instead (below): losing a few hours of
+   data is recoverable, a half-migrated schema is not.
+
+5. **Then say so in the commit history**: the fix goes through `main` like
+   everything else, so the next deploy does not bring the fault back.
+
+---
+
 ## Restoring the database
 
 The worker writes a copy of the data to the bucket every day, under `backups/`,
