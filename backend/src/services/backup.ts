@@ -31,6 +31,22 @@ export const BACKED_UP_TABLES = [
 
 export type BackedUpTable = (typeof BACKED_UP_TABLES)[number]
 
+/**
+ * A pool, or a client whose transaction the caller drives.
+ *
+ * Given a pool, these functions open their own transaction, which is what the
+ * worker wants. Given a client, they join the caller's, which is what lets the
+ * test hold the tables for the length of a backup and a restore instead of
+ * racing the files running beside it.
+ */
+export type BackupDb = Pool | PoolClient
+
+function isPool(db: BackupDb): db is Pool {
+  // By `release`, not by `connect`: a client taken from a pool has both, and
+  // testing for `connect` made this call `client.connect()` on a live one.
+  return !('release' in db)
+}
+
 export interface BackupSummary {
   key: string
   bytes: number
@@ -53,42 +69,56 @@ function backupKey(at: Date): string {
   return `${BACKUP_PREFIX}${at.toISOString().replace(/[:.]/g, '-')}.jsonl.gz`
 }
 
-export async function createBackup(
-  pool: Pool,
-  store: BackupStore,
-  now: Date = new Date(),
-): Promise<BackupSummary> {
+async function readAllRows(client: PoolClient): Promise<{
+  lines: string[]
+  rows: Record<BackedUpTable, number>
+}> {
   const lines: string[] = []
   const rows = {} as Record<BackedUpTable, number>
 
-  // One transaction, so the copy is one point in time rather than five.
-  const client = await pool.connect()
+  for (const table of BACKED_UP_TABLES) {
+    // The names come from the constant above, never from a caller.
+    const result = await client.query<Record<string, unknown>>(
+      `SELECT * FROM ${table} ORDER BY created_at, id`,
+    )
+    // eslint-disable-next-line security/detect-object-injection -- a literal from BACKED_UP_TABLES
+    rows[table] = result.rows.length
 
-  try {
-    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
-
-    for (const table of BACKED_UP_TABLES) {
-      // The names come from the constant above, never from a caller.
-      const result = await client.query<Record<string, unknown>>(
-        `SELECT * FROM ${table} ORDER BY created_at, id`,
-      )
-      // eslint-disable-next-line security/detect-object-injection -- a literal from BACKED_UP_TABLES
-      rows[table] = result.rows.length
-
-      for (const row of result.rows) {
-        lines.push(JSON.stringify({ table, row }))
-      }
+    for (const row of result.rows) {
+      lines.push(JSON.stringify({ table, row }))
     }
-  } finally {
-    await client.query('ROLLBACK').catch(() => undefined)
-    client.release()
   }
 
-  const body = gzipSync(Buffer.from(`${lines.join('\n')}\n`, 'utf8'))
+  return { lines, rows }
+}
+
+export async function createBackup(
+  db: BackupDb,
+  store: BackupStore,
+  now: Date = new Date(),
+): Promise<BackupSummary> {
+  let read: { lines: string[]; rows: Record<BackedUpTable, number> }
+
+  if (isPool(db)) {
+    const client = await db.connect()
+
+    try {
+      // One transaction, so the copy is one point in time rather than five.
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
+      read = await readAllRows(client)
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined)
+      client.release()
+    }
+  } else {
+    read = await readAllRows(db)
+  }
+
+  const body = gzipSync(Buffer.from(`${read.lines.join('\n')}\n`, 'utf8'))
   const key = backupKey(now)
   await store.put(key, body, 'application/gzip')
 
-  return { key, bytes: body.byteLength, rows }
+  return { key, bytes: body.byteLength, rows: read.rows }
 }
 
 /** Deletes the oldest copies beyond `kept`. Keys are dated, so they sort by age. */
@@ -128,7 +158,7 @@ async function insertRow(
   const placeholders = columns.map((_, index) => `$${String(index + 1)}`)
 
   // The table comes from the file's own `table` field, checked against the
-  // constant below before this is called; the column names come from the row.
+  // constant above before this is called; the column names come from the row.
   await client.query(
     `INSERT INTO ${table} (${columns.map((column) => `"${column}"`).join(', ')})
      VALUES (${placeholders.join(', ')})`,
@@ -136,12 +166,34 @@ async function insertRow(
   )
 }
 
+async function writeAllRows(
+  client: PoolClient,
+  lines: BackupLine[],
+): Promise<Record<BackedUpTable, number>> {
+  const restored = Object.fromEntries(
+    BACKED_UP_TABLES.map((table) => [table, 0]),
+  ) as Record<BackedUpTable, number>
+
+  // Children first, and CASCADE for what the foreign keys carry.
+  await client.query(`TRUNCATE ${[...BACKED_UP_TABLES].reverse().join(', ')} CASCADE`)
+
+  for (const table of BACKED_UP_TABLES) {
+    for (const line of lines.filter((candidate) => candidate.table === table)) {
+      await insertRow(client, table, line.row)
+      // eslint-disable-next-line security/detect-object-injection -- a literal from BACKED_UP_TABLES
+      restored[table] += 1
+    }
+  }
+
+  return restored
+}
+
 /**
  * Replaces the current data with a backup's, in one transaction: either the
  * whole copy is in place, or nothing changed.
  */
 export async function restoreBackup(
-  pool: Pool,
+  db: BackupDb,
   body: Buffer,
 ): Promise<Record<BackedUpTable, number>> {
   const lines = parseBackup(body)
@@ -151,32 +203,21 @@ export async function restoreBackup(
     throw new Error(`The backup holds an unknown table: ${unknown.table}`)
   }
 
-  const restored = Object.fromEntries(
-    BACKED_UP_TABLES.map((table) => [table, 0]),
-  ) as Record<BackedUpTable, number>
+  if (!isPool(db)) {
+    return writeAllRows(db, lines)
+  }
 
-  const client = await pool.connect()
+  const client = await db.connect()
 
   try {
     await client.query('BEGIN')
-    // Children first, and CASCADE for what the foreign keys carry.
-    await client.query(`TRUNCATE ${[...BACKED_UP_TABLES].reverse().join(', ')} CASCADE`)
-
-    for (const table of BACKED_UP_TABLES) {
-      for (const line of lines.filter((candidate) => candidate.table === table)) {
-        await insertRow(client, table, line.row)
-        // eslint-disable-next-line security/detect-object-injection -- a literal from BACKED_UP_TABLES
-        restored[table] += 1
-      }
-    }
-
+    const restored = await writeAllRows(client, lines)
     await client.query('COMMIT')
+    return restored
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined)
     throw err
   } finally {
     client.release()
   }
-
-  return restored
 }
